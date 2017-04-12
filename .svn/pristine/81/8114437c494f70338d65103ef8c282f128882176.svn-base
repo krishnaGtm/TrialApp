@@ -1,0 +1,22 @@
+﻿
+
+using System.ComponentModel;
+using System.Runtime.CompilerServices;
+using Xamarin.Forms;
+
+namespace TrialApp.ViewModels
+{
+    class MainPageViewModel:INotifyPropertyChanged
+    {
+        public MainPageViewModel()
+        {
+        }
+
+        public event PropertyChangedEventHandler PropertyChanged;
+
+        private void OnPropertyChanged([CallerMemberName] string name = "")
+        {
+            PropertyChanged?.Invoke(this,new PropertyChangedEventArgs(name));
+        }
+    }
+}

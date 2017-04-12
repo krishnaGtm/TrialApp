@@ -1,0 +1,142 @@
+﻿using System;
+using System.Windows.Input;
+using TrialApp.Entities.Transaction;
+using TrialApp.Services;
+using Xamarin.Forms;
+
+namespace TrialApp.ViewModels
+{
+    public class AddVarietyPageViewModel : BaseViewModel
+    {
+        public TrialService TrialSrv { get; set; }
+        public AddVarietyPageViewModel()
+        {
+            AddNewVarietyCommand = new AddNewVariety();
+            TrialSrv = new TrialService();
+            VarietyName = "";
+            ConfirmationMessage = "";
+            ConfirmationColor = Color.Green;
+        }
+        private int trialEzid;
+
+        public int TrialEzid
+        {
+            get { return trialEzid; }
+            set { trialEzid = value; OnPropertyChanged(); }
+        }
+        private string trialName;
+
+        public string TrialName
+        {
+            get { return trialName; }
+            set { trialName = value;
+                OnPropertyChanged();
+            }
+        }
+        private string varietyName;
+
+        public string VarietyName
+        {
+            get { return varietyName; }
+            set { varietyName = value;
+                if (string.IsNullOrWhiteSpace(varietyName))
+                    ButtonEnabled = false;
+                else
+                    ButtonEnabled = true;
+                OnPropertyChanged(); }
+        }
+
+        private int? consecutiveNumber;
+
+        public int? ConsecutiveNumber
+        {
+            get { return consecutiveNumber; }
+            set { consecutiveNumber = value; OnPropertyChanged(); }
+        }
+
+        private bool buttonEnabled;
+
+        public bool ButtonEnabled
+        {
+            get { return buttonEnabled; }
+            set { buttonEnabled = value; OnPropertyChanged(); }
+        }
+
+        public string CropCode { get; set; }
+
+        public ICommand AddNewVarietyCommand { get; set; }
+        private string confirmationMessage;
+
+        public string ConfirmationMessage
+        {
+            get { return confirmationMessage; }
+            set { confirmationMessage = value;
+                OnPropertyChanged();
+            }
+        }
+        private Color confirmationColor;
+
+        public Color ConfirmationColor
+        {
+            get { return confirmationColor; }
+            set { confirmationColor = value;
+                OnPropertyChanged();
+            }
+        }
+
+
+
+
+
+        private class AddNewVariety : ICommand
+        {
+            public event EventHandler CanExecuteChanged;
+
+            public bool CanExecute(object parameter)
+            {
+                var ViewModel = parameter as AddVarietyPageViewModel;
+                if (ViewModel == null)
+                    return false;
+                else if (!ViewModel.ButtonEnabled)
+                    return false;
+                return true;
+            }
+
+            public async void Execute(object parameter)
+            {
+                var ViewModel = parameter as AddVarietyPageViewModel;
+                var guid = Guid.NewGuid();
+                var trialEntry = new TrialEntryApp
+                {
+                    CropCode = ViewModel.CropCode,
+                    EZID = guid.ToString(),
+                    VarietyName = ViewModel.VarietyName,
+                    NewRecord = true,
+                    Modified = false,
+                    FieldNumber = ViewModel.ConsecutiveNumber.HasValue ? ViewModel.ConsecutiveNumber.ToString() : ""
+                    
+                };
+                var relationShip = new Relationship
+                {
+                    EZID1 = ViewModel.TrialEzid,
+                    EZID2 = guid.ToString(),
+                    EntityTypeCode1 = "TRI",
+                    EntityTypeCode2 = "TRL"
+                };
+                if (await ViewModel.TrialSrv.AddVariety(trialEntry, relationShip) > 0)
+                {
+                    ViewModel.VarietyName = "";
+                    ViewModel.ConsecutiveNumber = null;
+                    ViewModel.ConfirmationColor = Color.Green;
+                    ViewModel.ConfirmationMessage = "Added new variety";
+                }
+                else
+                {
+                    ViewModel.ConfirmationColor = Color.Red;
+                    ViewModel.ConfirmationMessage = "Unable to add new variety";
+                }
+                    
+            }
+        }
+    }
+}

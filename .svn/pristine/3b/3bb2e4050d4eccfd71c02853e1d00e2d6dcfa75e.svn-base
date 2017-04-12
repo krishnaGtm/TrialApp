@@ -1,0 +1,412 @@
+﻿using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+using TrialApp.Common;
+using TrialApp.Controls;
+using TrialApp.Entities.Transaction;
+using TrialApp.Services;
+using Xamarin.Forms;
+
+namespace TrialApp.ViewModels.Abstract
+{
+    public class ObservationBaseViewModel : BaseViewModel
+    {
+        #region private variables
+
+        private int _pickerSelectedIndex;
+        private List<Trait> traitList;
+        private Color _headerTextColor;
+        private Color _headerColor;
+
+        #endregion
+
+        #region public properties
+
+        public List<Trait> TraitList
+        {
+            get { return traitList; }
+            set
+            {
+                traitList = value;
+                OnPropertyChanged();
+            }
+        }
+
+        public ObservationAppService ObservationService;
+
+        public int PickerSelectedIndex
+        {
+            get { return _pickerSelectedIndex; }
+            set
+            {
+                _pickerSelectedIndex = value;
+                OnPropertyChanged();
+            }
+        }
+        public List<ObservationApp> ObsValueList { get; set; }
+
+        public int? SelectedFieldset { get; set; }
+
+        public TraitFieldValidation Validation { get; set; }
+
+        public string EzId { get; set; }
+        public int TrialEzId { get; set; }
+
+        public TrialService TrialService { get; set; }
+
+        public Color HeaderTextColor
+        {
+            get { return _headerTextColor; }
+            set
+            {
+                _headerTextColor = value;
+                OnPropertyChanged();
+            }
+        }
+
+        public Color HeaderColor
+        {
+            get { return _headerColor; }
+            set
+            {
+                _headerColor = value;
+                OnPropertyChanged();
+            }
+        }
+
+        #endregion
+
+        /// <summary>
+        /// returns corresponant value according to data type
+        /// </summary>
+        /// <param name="observationData"></param>
+        /// <param name="dataType"></param>
+        /// <returns></returns>
+        public string GetObservationValue(ObservationApp observationData, string dataType)
+        {
+            if (observationData != null)
+            {
+                switch (dataType)
+                {
+                    case "c":
+                        return observationData.ObsValueChar ?? "";
+                    case "i":
+                        return observationData.ObsValueInt.ToString() ?? "";
+                    case "d":
+                        return observationData.ObsValueDate?.ToString();
+                    case "a":
+                        return observationData.ObsValueDec.ToString();
+                    default:
+                        return "";
+
+                }
+            }
+            return "";
+
+        }
+
+        /// <summary>
+        /// returns single object from list
+        /// </summary>
+        /// <param name="traitId"></param>
+        /// <returns></returns>
+        public ObservationApp GetObsValue(int traitId)
+        {
+            var obsData = ObsValueList.FirstOrDefault(x => x.TraitID == traitId);
+            return obsData;
+        }
+
+        /// <summary>
+        /// returns correct observation value according to the datatype
+        /// </summary>
+        /// <param name="observationData"></param>
+        /// <param name="dataType"></param>
+        /// <returns></returns>
+        public ObservationApp ObservationWithCorrVal(ObservationApp observation, string dataType, string value)
+        {
+            switch (dataType)
+            {
+                case "c":
+                    observation.ObsValueChar = value;
+                    return observation;
+                case "i":
+                    int i;
+                    observation.ObsValueInt = int.TryParse(value, out i) ? i : (int?)null;// integerval) //Convert.ToInt32(value);
+                    return observation;
+                case "d":
+                    DateTime dt;
+                    observation.ObsValueDate = DateTime.TryParse(value, out dt) ? dt.ToString("yyyy-MM-ddTHH:mm:ss") : "";// Convert.ToDateTime(value);
+                    return observation;
+                case "a":
+                    decimal dec;
+                    observation.ObsValueDec = decimal.TryParse(value, out dec) ? dec : (decimal?)null;// Convert.ToDecimal(value);
+                    return observation;
+                default:
+                    return observation;
+
+            }
+        }
+
+        public async Task GetObsValueList(string ezid, string traitIdList)
+        {
+            ObsValueList = await ObservationService.GetObservationDataAll(ezid, traitIdList);
+        }
+
+        public async void Entry_Unfocused(object sender, FocusEventArgs e)
+        {
+            var entry = sender as Entry;
+            if (entry == null) return;
+            var traitId = Convert.ToInt32(entry.ClassId.Split('|')[0]);
+            var trait = TraitList.FirstOrDefault(x => x.TraitID == traitId);
+            if (trait == null) return;
+            var dataType = entry.ClassId.Split('|')[1];
+            var validateResult = Validation.validatecol(traitId.ToString(), entry.Text);
+            if (string.IsNullOrEmpty(validateResult))
+            {
+                var observation = new ObservationApp
+                {
+                    EZID = EzId,
+                    TraitID = traitId,
+                    DateCreated = DateTime.UtcNow.Date.ToString("yyyy-MM-dd"),
+                    DateUpdated = DateTime.UtcNow.Date.ToString("yyyy-MM-dd"),
+                    UserIDCreated = "user",
+                    UserIDUpdated = "user",
+                    Modified = true
+                };
+                observation = ObservationWithCorrVal(observation, dataType.ToLower(), entry.Text);
+                await ObservationService.UpdateOrSaveObservationData(observation);
+                TrialService.UpdateTrialStatus(TrialEzId);
+                trait.ValidationErrorVisible = false;
+                if (trait.ObsvalueInitial != trait.ObsValue)
+                {
+                    trait.RevertVisible = true;
+                    trait.ChangedValueVisible = true;
+                }
+                else
+                {
+                    trait.RevertVisible = false;
+                    trait.ChangedValueVisible = false;
+                }
+                UpdatedUi();
+            }
+            else
+            {
+                trait.ValidationErrorVisible = true;
+                trait.ChangedValueVisible = false;
+                entry.Focus();
+            }
+        }
+        public void DateEntry_Focused(object sender, FocusEventArgs e)
+        {
+            var entry = sender as Entry;
+            var traitId = Convert.ToInt32(entry.ClassId.Split('|')[0]);
+            var trait = TraitList.FirstOrDefault(x => x.TraitID == traitId);
+            if (trait == null) return;
+
+            trait.DatePickerVisible = true;
+            trait.DateVisible = false;
+        }
+        public async void Today_Clicked(object sender, EventArgs e)
+        {
+            var btn = sender as Button;
+            var traitId = Convert.ToInt32(btn.ClassId.Split('|')[0]);
+            var trait = TraitList.FirstOrDefault(x => x.TraitID == traitId);
+            if (trait == null) return;
+            if (trait.DateValue != DateTime.Today.Date)
+            {
+                var observation = new ObservationApp
+                {
+                    EZID = EzId,
+                    TraitID = traitId,
+                    DateCreated = DateTime.UtcNow.Date.ToString("yyyy-MM-dd"),
+                    DateUpdated = DateTime.UtcNow.Date.ToString("yyyy-MM-dd"),
+                    UserIDCreated = "user",
+                    UserIDUpdated = "user",
+                    ObsValueDate = DateTime.Today.Date.ToString("yyyy-MM-ddTHH:mm:ss"),// datePicker.Date,
+                    Modified = true
+                };
+                await ObservationService.UpdateOrSaveObservationData(observation);
+                TrialService.UpdateTrialStatus(TrialEzId);
+                trait.DatePickerVisible = false;
+                trait.DateVisible = true;
+                trait.DateValue = DateTime.Today.Date;
+                trait.ValidationErrorVisible = false;
+                trait.ChangedValueVisible = true;
+                trait.RevertVisible = true;
+                UpdatedUi();
+            }
+            else
+            {
+                trait.ValidationErrorVisible = false;
+                trait.ChangedValueVisible = false;
+                trait.RevertVisible = false;
+
+            }
+            
+            
+            
+        }
+        public void DatePicker_UnFocusedEX(object sender, FocusEventArgs e)
+        {
+            var datePicker = sender as DatePicker;
+            var traitId = Convert.ToInt32(datePicker.ClassId.Split('|')[0]);
+            var trait = TraitList.FirstOrDefault(x => x.TraitID == traitId);
+            if (trait == null) return;
+
+            trait.DatePickerVisible = false;
+            trait.DateVisible = true;
+        }
+        public async void Picker_SelectedIndexChanged(object sender, EventArgs e)
+        {
+            var picker = sender as BindablePicker;
+            if (picker?.ClassId != null)
+            {
+                var traitId = Convert.ToInt32(picker.ClassId.Split('|')[0]);
+                var trait = TraitList.FirstOrDefault(x => x.TraitID == traitId);
+                if (trait == null) return;
+                if (trait.ListValueBeforeChanged == trait.ObsValue) //this method is called to prevent on data saving because event is fired multiple times by default.
+                    return;
+                trait.ListValueBeforeChanged = trait.ObsValue;
+                var validateResult = Validation.validatecol(traitId.ToString(), picker.SelectedValue.ToString());
+                if (string.IsNullOrEmpty(validateResult))
+                {
+                    var observation = new ObservationApp
+                    {
+                        EZID = EzId,
+                        TraitID = traitId,
+                        DateCreated = DateTime.UtcNow.Date.ToString("yyyy-MM-dd"),
+                        DateUpdated = DateTime.UtcNow.Date.ToString("yyyy-MM-dd"),
+                        UserIDCreated = "user",
+                        UserIDUpdated = "user",
+                        ObsValueChar = picker.SelectedValue.ToString(),
+                        Modified = true
+                    };
+                    await ObservationService.UpdateOrSaveObservationData(observation);
+                    TrialService.UpdateTrialStatus(TrialEzId);
+                    trait.ValidationErrorVisible = false;                    
+                    if (trait.ObsValue != trait.ObsvalueInitial)
+                    {
+                        trait.RevertVisible = true;
+                        trait.ChangedValueVisible = true;
+                    }   
+                    else
+                    {
+                        trait.RevertVisible = false;
+                        trait.ChangedValueVisible = false;
+
+                    }   
+                    UpdatedUi();
+                }
+                else
+                {
+                    trait.ValidationErrorVisible = true;
+                    trait.ChangedValueVisible = false;
+                }
+            }
+
+
+        }
+        public async void DateData_DateSelected(object sender, DateChangedEventArgs e)
+        {
+            var datePicker = sender as DatePicker;
+            var traitId = Convert.ToInt32(datePicker.ClassId.Split('|')[0]);
+            var trait = TraitList.FirstOrDefault(x => x.TraitID == traitId);
+            if (trait == null) return;
+                var observation = new ObservationApp
+                {
+                    EZID = EzId,
+                    TraitID = traitId,
+                    DateCreated = DateTime.UtcNow.Date.ToString("yyyy-MM-dd"),
+                    DateUpdated = DateTime.UtcNow.Date.ToString("yyyy-MM-dd"),
+                    UserIDCreated = "user",
+                    UserIDUpdated = "user",
+                    ObsValueDate = datePicker.Date.ToString("yyyy-MM-ddTHH:mm:ss"),
+                    Modified = true
+                };
+                await ObservationService.UpdateOrSaveObservationData(observation);
+                TrialService.UpdateTrialStatus(TrialEzId);
+                trait.DatePickerVisible = false;
+                trait.DateVisible = true;
+                trait.ValidationErrorVisible = false;
+                trait.ChangedValueVisible = true;
+                if (trait.ObsvalueInitial != datePicker.Date.ToString("yyyy-MM-dd"))
+                {
+                    trait.RevertVisible = true;
+                    trait.ChangedValueVisible = true;
+                }
+                else
+                {
+                    trait.RevertVisible = false;
+                    trait.ChangedValueVisible = false;
+
+                }
+            UpdatedUi();
+        }
+
+        public async void Revert_Clicked(object sender, EventArgs e)
+        {
+            var btn = sender as Button;
+            var traitId = Convert.ToInt32(btn.ClassId.Split('|')[0]);
+            var trait = TraitList.FirstOrDefault(x => x.TraitID == traitId);
+            if (trait == null)
+                return;
+            if (trait.DataType.ToLower() == "d")
+            {
+                trait.DateValueString = trait.ObsvalueInitial;
+                trait.DateValue = (trait.DateVisible && trait.ObsvalueInitial != "") ? Convert.ToDateTime((trait.ObsValue.Split('T')[0])) : (DateTime?)null;
+                var observation = new ObservationApp
+                {
+                    EZID = EzId,
+                    TraitID = traitId,
+                    DateCreated = DateTime.UtcNow.Date.ToString("yyyy-MM-dd"),
+                    DateUpdated = DateTime.UtcNow.Date.ToString("yyyy-MM-dd"),
+                    UserIDCreated = "user",
+                    UserIDUpdated = "user",
+                    ObsValueDate = trait.DateValue?.ToString("yyyy-MM-ddTHH:mm:ss"),
+                    Modified = true
+                };
+                await ObservationService.UpdateOrSaveObservationData(observation);
+            }
+            else
+            {
+
+                var observation = new ObservationApp
+                {
+                    EZID = EzId,
+                    TraitID = traitId,
+                    DateCreated = DateTime.UtcNow.Date.ToString("yyyy-MM-dd"),
+                    DateUpdated = DateTime.UtcNow.Date.ToString("yyyy-MM-dd"),
+                    UserIDCreated = "user",
+                    UserIDUpdated = "user",
+                    Modified = true
+                };
+                observation = ObservationWithCorrVal(observation, trait.DataType.ToLower(), trait.ObsvalueInitial);
+                await ObservationService.UpdateOrSaveObservationData(observation);
+            }
+            trait.ObsValue = trait.ObsvalueInitial;
+            trait.ValidationErrorVisible = false;
+            trait.ChangedValueVisible = false;
+            trait.RevertVisible = false;
+        }
+
+        /// <summary>
+        /// Change the UI after value is updated in db
+        /// </summary>
+        public virtual void UpdatedUi()
+        {
+            HeaderColor = Color.Green;
+            HeaderTextColor = Color.White;
+        }
+
+        /// <summary>
+        /// Normal non modified UI page
+        /// </summary>
+        public virtual void NormalUi()
+        {
+            HeaderColor = Color.FromHex("#ebebeb");
+            HeaderTextColor = Color.Black;
+        }
+    }
+}

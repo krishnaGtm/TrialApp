@@ -1,0 +1,423 @@
+﻿using System;
+using System.Collections.Generic;
+using System.ComponentModel;
+using System.Linq;
+using System.Runtime.CompilerServices;
+using System.Threading.Tasks;
+using System.Windows.Input;
+using TrialApp.Common;
+using TrialApp.Common.Extensions;
+using TrialApp.Entities.Transaction;
+using TrialApp.Services;
+using TrialApp.ViewModels.Inetrfaces;
+using Xamarin.Forms;
+
+namespace TrialApp.ViewModels
+{
+    public class TransferPageViewModel : BaseViewModel
+    {
+        #region private variables
+
+        private IDependencyService _dependency;
+        private readonly TrialService _service;
+        private readonly SaveFilterService _saveFilterService;
+        private readonly SettingParametersService _settingParametersService;
+        private List<TrialData> _trialList;
+        private string _btnSelectTxt;
+        private string _btnDownloadTxt;
+        //private bool _isBusy;
+        private bool _btnDownloadVisible;
+        private Color _buttonColor;
+        private bool _searchVisible;
+        private string _searchText;
+        private bool _enableControls;
+
+        #endregion
+
+
+        #region public variables
+
+        public string SearchText
+        {
+            get { return _searchText; }
+            set
+            {
+                _searchText = value;
+                OnPropertyChanged();
+            }
+        }
+
+        public Color ButtonColor
+        {
+            get { return _buttonColor; }
+            set
+            {
+                _buttonColor = value;
+                OnPropertyChanged();
+            }
+        }
+        public bool IsAllSelected { get; set; }
+
+        public bool EnableControls
+        {
+            get { return _enableControls; }
+            set
+            {
+                _enableControls = value;
+                if (_enableControls)
+                    ButtonColor = Color.FromHex("#2B7DF4");
+                else
+                    ButtonColor = Color.Transparent;
+                OnPropertyChanged();
+            }
+        }
+
+        public ICommand SelectAllCommand { get; set; }
+        public ICommand DownloadCommand { get; set; }
+        public string BtnSelectTxt
+        {
+            get { return _btnSelectTxt; }
+            set
+            {
+                _btnSelectTxt = value;
+                OnPropertyChanged();
+            }
+        }
+        public string BtnDownloadTxt
+        {
+            get { return _btnDownloadTxt; }
+            set
+            {
+                _btnDownloadTxt = value;
+                OnPropertyChanged();
+            }
+        }
+        public bool BtnDownloadVisible
+        {
+            get
+            {
+                return _btnDownloadVisible;
+            }
+            set
+            {
+                _btnDownloadVisible = value;
+                OnPropertyChanged();
+            }
+
+        }
+        public List<TrialData> TrialList
+        {
+            get { return _trialList; }
+            set
+            {
+                _trialList = value;
+                foreach (var item in value)
+                {
+                    item.PropertyChanged += this.OnItemPropertyChanged;
+                }
+                OnPropertyChanged();
+            }
+        }
+        public List<TrialData> TotalDownloadedTrialList { get; set; }
+
+        private void OnItemPropertyChanged(object sender, PropertyChangedEventArgs e)
+        {
+            var count = this.TrialList.ToList().Where(t => t.IsSelected).Count();
+            if (count > 0)
+            {
+                BtnDownloadTxt = TrialList.Count == count ? "DOWNLOAD ALL TRIALS" : "DOWNLOAD " + count + " TRIAL";
+                BtnDownloadVisible = true;
+            }
+            else
+                BtnDownloadVisible = false;
+        }
+
+        //public bool IsBusy
+        //{
+        //    get { return _isBusy; }
+        //    set
+        //    {
+        //        _isBusy = value;
+        //        OnPropertyChanged();
+        //    }
+        //}
+
+
+        public bool SearchVisible
+        {
+            get { return _searchVisible; }
+            set
+            {
+                _searchVisible = value;
+                OnPropertyChanged();
+            }
+        }
+        /// <summary>
+        /// to fetch all data from server without filtering
+        /// </summary>
+
+        public ICommand GoToFilterScreen { get; set; }
+        #endregion
+
+        public TransferPageViewModel()
+        {
+            _service = new TrialService();
+            _saveFilterService = new SaveFilterService();
+            _settingParametersService = new SettingParametersService();
+            SelectAllCommand = new SelectAllCommand(this);
+            DownloadCommand = new DownloadCommand(this);
+            GoToFilterScreen = new GoToFilterScreenCommand();
+            EnableControls = false;
+            SearchVisible = false;
+            BtnSelectTxt = "downloading...";
+            FilterIcon = ImageSource.FromFile("../Assets/filter.png");
+            //Device.BeginInvokeOnMainThread(async () =>
+            //{
+            //    BtnSelectTxt = "downloading...";
+            //    IsBusy = true;
+            //    var masterDataModule = new MasterDataModule();
+            //    if (await masterDataModule.getMetaInfo())
+            //        await masterDataModule.InitializeInput();
+            //    await LoadTrialList();
+            //    IsBusy = false;
+            //    //SearchEnabled = true;
+            //    EnableControls = true;
+            //});
+            Device.BeginInvokeOnMainThread(async () =>
+            {
+                await DownloadTrialList();
+            });
+
+
+        }
+
+        public TransferPageViewModel(IDependencyService dependency)
+        {
+            _dependency = dependency;
+        }
+
+        public async Task DownloadTrialList()
+        {
+            IsBusy = true;
+            var masterDataModule = new MasterDataModule();
+            if (await masterDataModule.getMetaInfo())
+                await masterDataModule.InitializeInput();
+            await LoadTrialList();
+            IsBusy = false;
+            EnableControls = true;
+        }
+
+
+        public async Task LoadTrialList()
+        {
+            var trialList = new List<TrialData>();
+            var trialDtoList = await _service.GetTrialsWrapperService();
+
+            foreach (var val in trialDtoList)
+            {
+                var vvar = new TrialData
+                {
+                    IsSelected = false,
+                    EZID = Convert.ToInt32(val.EZID),
+                    CountryCode = val.CountryCode,
+                    CropCode = val.CropCode,
+                    TrialTypeID = Convert.ToInt32(val.TrialTypeID),
+                    TrialRegionID = val.TrialRegionID,
+                    CropSegmentCode = val.CropSegmentCode.ToUpper(),
+                    TrialName = val.Name,
+                    TrialDetails = string.Concat(val.CropCode, "-", val.CountryName)
+                };
+                trialList.Add(vvar);
+            }
+            TotalDownloadedTrialList = trialList;
+            await ReloadList();
+        }
+
+        public void SearchTextChanged(object sender, TextChangedEventArgs e)
+        {
+            var entry = sender as Entry;
+            FilterData(entry.Text.ToText());
+        }
+        /// <summary>
+        /// filter list according to search parameter provided on method. Ignores case of filter parameter.
+        /// </summary>
+        /// <param name="searchParam">search parameter to filter ignoring case</param>
+        public void FilterData(string searchParam)
+        {
+            var filteredData =
+                TotalDownloadedTrialList.Where(x => x.TrialName.ToLower().StartsWith(searchParam?.ToLower())).ToList();
+            BtnSelectTxt = filteredData.Count > 0
+                ? string.Concat("Select all (", filteredData.Count.ToString(), ")")
+                : "No records";
+            TrialList = filteredData;
+
+        }
+
+        public async Task ReloadList()
+        {
+            if (TotalDownloadedTrialList == null) return;
+            var saveFilterList = new List<SaveFilter>();
+            var result = _settingParametersService.GetParamsList().Single();
+            FilterIcon = result.Filter ? ImageSource.FromFile("../Assets/Activefilter.png") : ImageSource.FromFile("../Assets/filter.png");
+            if (result.Filter)
+                saveFilterList = await _saveFilterService.GetSaveFilterAsync();
+            var filteredTrials = TotalDownloadedTrialList;
+            foreach (var val in saveFilterList)
+            {
+                switch (val.Field.ToLower())
+                {
+                    case "trialtypeid":
+                        filteredTrials =
+                            filteredTrials.FindAll(x => x.TrialTypeID == Convert.ToInt32(val.FieldValue)).ToList();
+                        break;
+                    case "cropcode":
+                        filteredTrials = filteredTrials.FindAll(x => x.CropCode == val.FieldValue).ToList();
+                        break;
+                    case "cropsegmentcode":
+                        filteredTrials = filteredTrials.FindAll(x => x.CropSegmentCode == val.FieldValue).ToList();
+                        break;
+                    case "trialregionid":
+                        filteredTrials =
+                            filteredTrials.FindAll(x => x.TrialRegionID == Convert.ToInt32(val.FieldValue)).ToList();
+                        break;
+                    case "countrycode":
+                        filteredTrials = filteredTrials.FindAll(x => x.CountryCode == val.FieldValue).ToList();
+                        break;
+                }
+            }
+
+            TrialList = new List<TrialData>(filteredTrials.Select(x => x.Clone()));
+            BtnDownloadVisible = false;
+            BtnSelectTxt = TrialList.Count > 0 ? string.Concat("Select all (", TrialList.Count.ToString(), ")") : "No records";
+            SearchText = "";
+        }
+    }
+
+    public class TrialData : INotifyPropertyChanged, ICloneable<TrialData>
+    {
+        private bool _isSelected;
+        public int EZID { get; set; }
+        public string CropCode { get; set; }
+        public string TrialName { get; set; }
+        public int TrialTypeID { get; set; }
+        public string CountryCode { get; set; }
+        public int TrialRegionID { get; set; }
+        public string CropSegmentCode { get; set; }
+        public bool IsSelected
+        {
+            get { return _isSelected; }
+            set
+            {
+                _isSelected = value;
+                NotifyPropertyChanged();
+            }
+        }
+
+        public string TrialDetails { get; set; }
+
+        public event PropertyChangedEventHandler PropertyChanged;
+
+        private void NotifyPropertyChanged([CallerMemberName] string name = "")
+        {
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
+        }
+
+        public TrialData Clone()
+        {
+            return new TrialData
+            {
+                EZID = EZID,
+                TrialRegionID = TrialRegionID,
+                CountryCode = CountryCode,
+                CropCode = CropCode,
+                TrialTypeID = TrialTypeID,
+                CropSegmentCode = CropSegmentCode,
+                IsSelected = IsSelected,
+                TrialName = TrialName,
+                TrialDetails = TrialDetails
+            };
+        }
+    }
+    internal class SelectAllCommand : ICommand
+    {
+        private TransferPageViewModel _transferPageViewModel;
+        public event EventHandler CanExecuteChanged;
+
+        public SelectAllCommand(TransferPageViewModel vm)
+        {
+            _transferPageViewModel = vm;
+        }
+        public bool CanExecute(object parameter)
+        {
+            var obj = _transferPageViewModel;
+            if (obj != null)
+            {
+                if (obj.EnableControls)
+                    return true;
+            }
+            return false;
+        }
+
+        public void Execute(object parameter)
+        {
+            var obj = _transferPageViewModel;
+            obj.IsAllSelected = !obj.IsAllSelected;
+            foreach (var item in obj.TrialList)
+            {
+                item.IsSelected = obj.IsAllSelected;
+            }
+            obj.BtnSelectTxt = obj.TrialList.Count > 0 ? string.Concat(obj.IsAllSelected ? "Unselect all (" : "Select all (", obj.TrialList.Count.ToString(), ")") : "No records";
+        }
+    }
+
+    internal class DownloadCommand : ICommand
+    {
+        private TransferPageViewModel _transferPageViewModel;
+        public event EventHandler CanExecuteChanged;
+        private TrialService _trialService = new TrialService();
+        public DownloadCommand(TransferPageViewModel vm)
+        {
+            _transferPageViewModel = vm;
+        }
+        public bool CanExecute(object parameter)
+        {
+            return true;
+        }
+
+        public async void Execute(object parameter)
+        {
+            _transferPageViewModel.BtnSelectTxt = "downloading...";
+            _transferPageViewModel.IsBusy = true;
+            _transferPageViewModel.EnableControls = false;
+            _transferPageViewModel.SearchVisible = false;
+            var selectedTrialList = _transferPageViewModel.TrialList.Where(t => t.IsSelected);
+            var trialDatas = selectedTrialList as IList<TrialData> ?? selectedTrialList.ToList();
+            if (trialDatas.Any())
+            {
+                var reqList = trialDatas.Select(t => new Entities.Transaction.Trial
+                {
+                    EZID = t.EZID,
+                    CropCode = t.CropCode,
+                    TrialName = t.TrialName,
+                    TrialTypeID = t.TrialTypeID,
+                    CountryCode = t.CountryCode,
+                    TrialRegionID = t.TrialRegionID,
+                    CropSegmentCode = t.CropSegmentCode,
+                    StatusCode = 10
+                });
+                var ezIdSuccess = await _trialService.DownloadTrialEntriesData(reqList);
+                _transferPageViewModel.TotalDownloadedTrialList = _transferPageViewModel.TotalDownloadedTrialList.Where(x => !ezIdSuccess.Contains(x.EZID)).ToList();
+                _transferPageViewModel.TrialList = _transferPageViewModel.TrialList.Where(x => !ezIdSuccess.Contains(x.EZID)).ToList();
+                if (trialDatas.Count() == ezIdSuccess.Count)
+                {
+                    _transferPageViewModel.BtnDownloadVisible = false;
+                }
+            }
+            _transferPageViewModel.BtnSelectTxt = _transferPageViewModel.TrialList.Count > 0 ? string.Concat("Select all (", _transferPageViewModel.TrialList.Count.ToString(), ")") : "No records";
+            _transferPageViewModel.IsBusy = false;
+            _transferPageViewModel.EnableControls = true;
+        }
+    }
+
+
+}

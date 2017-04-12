@@ -1,0 +1,62 @@
+﻿<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://xamarin.com/schemas/2014/forms"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:controls="clr-namespace:TrialApp.Controls;assembly=TrialApp"
+             xmlns:Observationcontrol="clr-namespace:TrialApp.UserControls;assembly=TrialApp"
+             xmlns:controls1="using:TrialApp.Controls"
+             xmlns:system="using:System"
+             x:Class="TrialApp.Views.ObservationPage"
+             >
+  <ContentView BackgroundColor="White" >
+
+    <StackLayout VerticalOptions="FillAndExpand">
+
+      <Frame x:Name="HeaderFrame"  BackgroundColor="{Binding HeaderColor, Mode=TwoWay}" Padding="10,5,10,20" HeightRequest="80">
+        <StackLayout Orientation="Vertical" HeightRequest="80">
+          <Label Text="{Binding CurrentTime}"  HorizontalOptions="EndAndExpand" VerticalOptions="Start" FontSize="16" TextColor="Black"/>
+          <StackLayout Orientation="Horizontal" VerticalOptions="EndAndExpand" >
+            <Label Text="{Binding VarietyName}" VerticalOptions="End" HorizontalOptions="StartAndExpand" FontSize="22" TextColor="{Binding HeaderTextColor}"/>
+            <Label Text="changed" IsVisible="{Binding ChangedVisible}" HorizontalOptions="EndAndExpand" VerticalOptions="End" FontSize="18" TextColor="White" Opacity="0.3"></Label>
+          </StackLayout>
+        </StackLayout>
+      </Frame>
+
+      <Frame Padding="10">
+        <StackLayout Orientation="Vertical">
+          <controls:BindablePicker
+              x:Name="FieldsetPicker"
+              ItemsSource="{Binding TraitSetList}"
+              HorizontalOptions="FillAndExpand"
+              BackgroundColor="#ebebeb"
+              Margin="0,0,0,20"
+              DisplayMemberPath="Name"
+              SelectedValuePath="Id"
+              SelectedValue="{Binding Path=FieldSetPair.Id, Mode=TwoWay}"
+              SelectedIndexChanged="FieldsetPicker_OnSelectedIndexChanged"
+              VerticalOptions="FillAndExpand"
+              SelectedIndex="{Binding PickerSelectedIndex}"
+              IsEnabled="{Binding FieldsetPickerEnabled}" 
+            />
+
+          <StackLayout Orientation="Vertical">
+            <Observationcontrol:EntryUserControl x:Name="ObservationUserControl" BindingContext="{Binding TraitList}"></Observationcontrol:EntryUserControl>
+                <Grid Margin="0,10" IsEnabled="{Binding FieldsetPickerEnabled}">
+                    <Grid.ColumnDefinitions>
+                      <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <Button x:Name="BtnPrev" HorizontalOptions="FillAndExpand" VerticalOptions="End" TextColor="{Binding PrevButtonColor}" Text="{Binding PrevVarietyName}"
+                        Command="{Binding PrevCommand}" CommandParameter="{Binding}"
+                        BorderColor="{Binding PrevButtonColor}" FontSize="20" HeightRequest="60"  IsEnabled="{Binding PrevButtonEnable}"/>
+                    <Button x:Name="BtnNext" Grid.Column="1" HorizontalOptions="FillAndExpand" VerticalOptions="End" TextColor="{Binding NextButtonColor}" Text="{Binding NextVarietyName}"
+                        Command="{Binding NextCommand}" CommandParameter="{Binding}"
+                        BorderColor="{Binding NextButtonColor}" FontSize="20" HeightRequest="60" IsEnabled="{Binding NextButtonEnable}"/>
+            </Grid>
+        </StackLayout>
+
+        </StackLayout>
+      </Frame>
+    </StackLayout>
+
+  </ContentView>
+</ContentPage>

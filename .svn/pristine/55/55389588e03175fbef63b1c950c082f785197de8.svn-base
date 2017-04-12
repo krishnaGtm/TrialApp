@@ -1,0 +1,79 @@
+﻿using System;
+using System.Collections.Generic;
+using System.ComponentModel;
+using System.Runtime.CompilerServices;
+using System.Threading.Tasks;
+using System.Windows.Forms;
+using System.Windows.Input;
+using TrialApp.Services;
+using TrialApp.Views;
+using Xamarin.Forms;
+using Label = Xamarin.Forms.Label;
+
+namespace TrialApp.ViewModels
+{
+    class VarietyPageViewModel : BaseViewModel
+    {
+        #region private variables
+
+        private TrialService _service;
+        #endregion
+
+        #region public properties
+        public List<VarietyData> VarietyList { get; set; }
+        public string MainText { get; set; }
+
+        #endregion
+        public ICommand GoToAddVarietyScreen { get; set; }
+        public INavigation Navigation { get; set; }
+        public int TrialEZID { get; set; }
+        public string TrialName { get; set; }
+        public string CropCode { get; set; }
+        public VarietyPageViewModel()
+        {
+            GoToAddVarietyScreen = new GoToAddVarietyScreenCommand();
+        }
+
+        public void LoadVarietyPageViewModel(int ezid, string trialName, Action<List<VarietyData>> predicate)
+        {
+            _service = new TrialService();
+            var res = LoadVarieties(ezid, trialName);
+            predicate(res);
+        }
+
+
+        private List<VarietyData> LoadVarieties(int ezid, string trialName)
+        {
+            MainText = trialName;
+            VarietyList = new List<VarietyData>();
+
+            var trialList = _service.GetVarietiesList(ezid);
+            var i = 0;
+
+            foreach (var val in trialList)
+            {
+                i++;
+                var vvar = new VarietyData { VarietyId = val.EZID, FieldNumber = val.FieldNumber, VarietyName = val.VarietyName,Crop = val.CropCode };
+                VarietyList.Add(vvar);
+
+            }
+            return VarietyList;
+        }
+
+        private class GoToAddVarietyScreenCommand : ICommand
+        {
+            public event EventHandler CanExecuteChanged;
+
+            public bool CanExecute(object parameter)
+            {
+                return true;
+            }
+
+            public async void Execute(object parameter)
+            {
+                var ViewModel = parameter as VarietyPageViewModel;
+                await ViewModel.Navigation.PushModalAsync(new AddVarietyPage(ViewModel.TrialEZID,ViewModel.TrialName,ViewModel.CropCode));
+            }
+        }
+    }
+}

@@ -1,0 +1,31 @@
+﻿using System.Collections.Generic;
+using Microsoft.VisualStudio.TestTools.UnitTesting;
+using TrialApp.ViewModels;
+using TrialApp.ViewModels.Inetrfaces;
+
+namespace TrialAppLT.UnitTest
+{
+    [TestClass]
+    public class TransferPageTest
+    {
+        private IDependencyService _dependency;
+        [TestMethod]
+        public void SearchMethod()
+        {
+            _dependency = new DependencyServiceStub();
+            TransferPageViewModel vm = new TransferPageViewModel(_dependency);
+            if(vm?.TrialList == null)
+                vm.TrialList = new List<TrialData>();
+            if(vm?.trialList == null)
+                vm.trialList = new List<TrialData>();
+            vm.trialList.AddRange(new []
+            {
+                new TrialData {EZID = 1,CountryCode = "NL",CropCode = "TO",TrialName = "test",TrialTypeID = 1},
+                new TrialData {EZID = 2,CountryCode = "NL",CropCode = "TO",TrialName = "test1",TrialTypeID = 1} 
+            });
+            int expectedValue = 1;
+            vm.FilterData("test1");
+            Assert.AreEqual(expectedValue,vm.TrialList.Count,"Applied filter on transfer page");
+        }
+    }
+}

@@ -1,0 +1,9 @@
+﻿namespace TrialApp.Entities.Transaction
+{
+    class DefaultFieldSet
+    {
+        public int? CropGroupID { get; set; }
+        public string CropCode { get; set; }
+        public string Fieldset { get; set; }
+    }
+}

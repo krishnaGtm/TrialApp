@@ -1,0 +1,44 @@
+﻿using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+using TrialApp.Entities.Transaction;
+using TrialApp.ViewModels;
+using Xamarin.Forms;
+
+namespace TrialApp.Views
+{
+    public partial class VarietyPage : ContentPage
+    {
+        private List<VarietyData> VarList { get; set; }
+        private VarietyPageViewModel _varietyVm;
+        private int _trialEzid;
+        public VarietyPage(int ezid, string trialName)
+        {
+            InitializeComponent();
+            _varietyVm = new VarietyPageViewModel(ezid, trialName, trialList => { VarietyListView.ItemsSource = trialList; });
+            BindingContext = _varietyVm;
+            _trialEzid = ezid;
+        }
+
+        private void VarietyListView_OnItemTapped(object sender, ItemTappedEventArgs e)
+        {
+            var varList = _varietyVm.VarietyList;
+            var stackedItem = e.Item as VarietyData;
+            if (stackedItem != null)
+            {
+                var id = stackedItem.VarietyId;
+                var crop = stackedItem.Crop;
+                Navigation.PushModalAsync(new ObservationPage(id, crop, varList, _trialEzid));
+            }
+        }
+    }
+
+    public class VarietyData
+    {
+        public string VarietyId { get; set; }
+        public string Name { get; set; }
+        public string Crop { get; set; }
+    }
+}

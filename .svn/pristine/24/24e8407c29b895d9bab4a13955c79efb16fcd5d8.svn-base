@@ -1,0 +1,133 @@
+﻿using System;
+using System.Text;
+using System.Collections.Generic;
+using Microsoft.VisualStudio.TestTools.UnitTesting;
+using TrialApp.Entities.Master;
+using TrialApp.ViewModels;
+using TrialApp.ViewModels.Inetrfaces;
+using TrialApp.Views;
+using Trial = TrialApp.Entities.Transaction.Trial;
+using TrialApp.Services;
+using System.Collections.ObjectModel;
+using Model;
+
+namespace TrialAppLT.UnitTest
+{
+    /// <summary>
+    /// Summary description for FilterPageUnitTest
+    /// </summary>
+    [TestClass]
+    public class FilterPageUnitTest
+    {
+        IDependencyService _dependencyService;
+        public FilterPageUnitTest()
+        {
+            _dependencyService = new DependencyServiceStub();
+        }
+
+        private TestContext testContextInstance;
+
+        /// <summary>
+        ///Gets or sets the test context which provides
+        ///information about and functionality for the current test run.
+        ///</summary>
+        public TestContext TestContext
+        {
+            get
+            {
+                return testContextInstance;
+            }
+            set
+            {
+                testContextInstance = value;
+            }
+        }
+
+        #region Additional test attributes
+        //
+        // You can use the following additional attributes as you write your tests:
+        //
+        // Use ClassInitialize to run code before running the first test in the class
+        // [ClassInitialize()]
+        // public static void MyClassInitialize(TestContext testContext) { }
+        //
+        // Use ClassCleanup to run code after all tests in a class have run
+        // [ClassCleanup()]
+        // public static void MyClassCleanup() { }
+        //
+        // Use TestInitialize to run code before running each test 
+        // [TestInitialize()]
+        // public void MyTestInitialize() { }
+        //
+        // Use TestCleanup to run code after each test has run
+        // [TestCleanup()]
+        // public void MyTestCleanup() { }
+        //
+        #endregion
+
+        [TestMethod]
+        public void FilterPage_FilterListChangeTest()
+        {
+            //Arrange
+            const int cropSegmentCc = 2;
+            const int trialRegionCc = 2;
+
+            //Act
+            var vm = new FilterPageViewModel(_dependencyService)
+            {
+                //CropSegmentList = new List<CropSegment>(),
+                //TrialRegionList = new List<TrialRegion>(),
+                //CropSegmentListFromDb = new List<CropSegment>(),
+                //TrialRegionListFromDb = new List<TrialRegion>()
+                CropSegmentList = new ObservableCollection<MyType>(),
+                TrialRegionList = new ObservableCollection<MyType>(),
+                CropSegmentListFromDb = new ObservableCollection<CropSegment>(),
+                TrialRegionListFromDb = new ObservableCollection<TrialRegion>()
+            };
+            var cropsegment = new List<CropSegment>();
+            var trialregion = new List<TrialRegion>();
+
+            //vm.CropSegmentListFromDb.AddRange(new[]
+            cropsegment.AddRange(new[]
+            {
+                new CropSegment {CropCode = "LT", CropSegmentCode = "01A", CropSegmentName = "Batavia Greenhouse"},
+                new CropSegment {CropCode = "LT", CropSegmentCode = "01B", CropSegmentName = "Butterhead Greenhouse"},
+                new CropSegment {CropCode = "LT", CropSegmentCode = "01C", CropSegmentName = "Leaf Lettuce Greenhouse"},
+                new CropSegment {CropCode = "ME", CropSegmentCode = "25A", CropSegmentName = "Ananas"},
+                new CropSegment {CropCode = "ME", CropSegmentCode = "25C", CropSegmentName = "Chentatia"},
+                new CropSegment {CropCode = "ME", CropSegmentCode = "25D", CropSegmentName = "Diversmelons"},
+                new CropSegment {CropCode = "ME", CropSegmentCode = "25E", CropSegmentName = "Eastern shipper type"},
+                new CropSegment {CropCode = "CC", CropSegmentCode = "23C", CropSegmentName = "Chinese type"},
+                new CropSegment {CropCode = "CC", CropSegmentCode = "23D", CropSegmentName = "Diversey hobby"},
+
+            });
+            vm.CropSegmentListFromDb = new ObservableCollection<CropSegment>(cropsegment);
+            //vm.TrialRegionListFromDb.AddRange(new[]
+            trialregion.AddRange(new[]
+            {
+                new TrialRegion {TrialRegionID = 1, TrialRegionCode = "NWE",TrialRegionName = "Northwest Europe", CropCode = "LT"},
+                new TrialRegion {TrialRegionID = 2, TrialRegionCode = "SWE",TrialRegionName = "South west Europe", CropCode = "LT"},
+                new TrialRegion {TrialRegionID = 3, TrialRegionCode = "R4",TrialRegionName = "Region4", CropCode = "CC"},
+                new TrialRegion {TrialRegionID = 4, TrialRegionCode = "R5",TrialRegionName = "Region5", CropCode = "CC"},
+            });
+            vm.TrialRegionListFromDb = new ObservableCollection<TrialRegion>(trialregion);
+            vm.ReloadFilter("Crop", "CC");
+            
+
+            //Assert
+            Assert.AreEqual(cropSegmentCc, vm.CropSegmentList.Count, "Crop segment list not filtered per crop value");
+            Assert.AreEqual(trialRegionCc, vm.TrialRegionList.Count, "Trial region list not filtered per crop value");
+            Console.WriteLine("CropSegment list filtered with value of Crop : Passed.\n"
+                + "Trial region list filtered with value of crop: Passed.");
+
+        }
+
+        [TestMethod]
+        public void FilterPage_()
+        {
+            //
+            // TODO: Add test logic here
+            //
+        }
+    }
+}

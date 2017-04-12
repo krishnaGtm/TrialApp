@@ -1,0 +1,39 @@
+﻿using Enza.DataAccess;
+using SQLite;
+using System.Collections.Generic;
+using System.Threading.Tasks;
+using TrialApp.Common;
+using TrialApp.Entities.Master;
+using System;
+using System.Linq;
+
+namespace TrialApp.DataAccess
+{
+    public class FieldSetRepository : Repository<FieldSet>
+    {
+        public FieldSetRepository() : base(DbPath.GetMasterDbPath())
+        {
+        }
+        public FieldSetRepository(SQLiteAsyncConnection connection) : base(connection)
+        {
+        }
+
+        public void InsertAll(List<FieldSet> fieldsetList, SQLiteConnection db)
+        {
+            db.InsertAll(fieldsetList);
+        }
+
+        public List<FieldSet> Get(string cropCode)
+        {
+            var cropGroupId = 0;
+            var cropList = DbContext().Query<CropRD>("select CropGroupID from CropRD where CropCode = ?", cropCode).FirstOrDefault();
+            if (cropList != null)
+                cropGroupId = Convert.ToInt32(cropList.CropGroupID);
+            
+            var fieldSet = DbContext().Query<FieldSet>(@"SELECT * FROM FieldSet WHERE [NormalTrait] = 1 and ((CropGroupID = ? and CropGroupLevel = 1)  or ( CropCode = ? and CropLevel = 1))",
+                        cropGroupId, cropCode);
+            return fieldSet;
+        }
+
+    }
+}

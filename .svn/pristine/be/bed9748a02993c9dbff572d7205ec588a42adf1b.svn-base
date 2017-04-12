@@ -1,0 +1,137 @@
+﻿using System;
+using System.Collections.Generic;
+using TrialApp.Services;
+using TrialApp.UserControls;
+using TrialApp.ViewModels;
+using Xamarin.Forms;
+
+namespace TrialApp.Views
+{
+    public partial class MainPage
+    {
+        private static readonly Dictionary<string,string> TrialStatus = new Dictionary<string, string>
+        {
+            {"10","New"},
+            {"20","Synced"},
+            {"30","Updated"}
+        };
+
+        private StackLayout _parent;
+        private readonly TrialService _service;
+        private MainPageViewModel _vm;
+        private string _userName;
+        private ActivityIndicator activityIndicator;
+
+        public MainPage(string userName)
+        {
+            _service = new TrialService();
+            _userName = userName;
+            InitializeComponent();
+            _vm = new MainPageViewModel();
+        }
+        protected override void OnAppearing()
+        {
+            LoadTrials();
+        }
+        
+        private  void LoadTrials()
+        {
+            _parent = new StackLayout
+            {
+                Orientation = StackOrientation.Vertical,
+                Spacing = 5,
+                VerticalOptions = LayoutOptions.Fill
+            };
+
+            var label = new Label
+            {
+                Text = "Trials",
+                FontSize = Device.GetNamedSize(NamedSize.Large, typeof(Label)),
+                TextColor = Color.Black
+            };
+
+            _parent.Children.Add(label);
+            var grid = new Grid
+            {
+
+                HorizontalOptions = LayoutOptions.StartAndExpand,
+                RowSpacing = 10,
+                ColumnSpacing = 10,
+                RowDefinitions = {
+                    new RowDefinition { Height = new GridLength(1, GridUnitType.Star)}
+                },
+                ColumnDefinitions =
+            {
+                new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) },
+                new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) },
+                new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) },
+
+            }
+            };
+            
+
+            var trialList =  _service.GetAllTrials();
+            var i = 0;
+            var button = new Button
+            {
+                BackgroundColor = Color.Transparent,
+                HeightRequest = 125,
+                WidthRequest = 125,
+                Text = _userName == "" ? "OFFLINE" : "+",
+                TextColor = _userName == "" ? Color.Gray : Color.Green,
+                BorderColor = _userName == "" ? Color.Gray : Color.Green,
+                BorderWidth = 1,
+                FontSize = _userName == "" ? Device.GetNamedSize(NamedSize.Medium, typeof(Button)) : 70
+            };
+            button.Clicked += Button_Clicked;
+            grid.Children.Add(button, (i % 3), i / 3);
+            i++;
+            foreach (var trial in trialList)
+            {
+                    var tileControl = new TrialTile
+                    {
+
+                        Status = TrialStatus[trial.StatusCode.ToString()],
+                        Name = trial.CropCode,
+                        Info = trial.TrialName,
+                        BackgroundColor = Color.FromHex("#4990e2"),
+                        btnNameFontSize = Device.GetNamedSize(NamedSize.Large, typeof(Button)),
+
+                    };
+
+
+                    var tapGestureRecognizer = new TapGestureRecognizer();
+                    tapGestureRecognizer.Tapped += (sender, args) =>
+                    {
+                        Navigation.PushModalAsync(new VarietyPage(trial.EZID, trial.TrialName));
+                    };
+
+                    tileControl.GestureRecognizers.Add(tapGestureRecognizer);
+
+                    grid.Children.Add(tileControl, i % 3, i / 3);
+                i++;
+            }
+            var sv = new ScrollView
+            {
+              Orientation = ScrollOrientation.Vertical,
+              Margin = 5,
+              HorizontalOptions = LayoutOptions.CenterAndExpand,
+                Content = grid
+            };
+            
+            _parent.Children.Add(sv);
+            Content = _parent;
+        }
+
+
+        private  void Button_Clicked(object sender, EventArgs e)
+        {
+            var btn = sender as Button;
+            if (btn.Text == "+")
+                Navigation.PushModalAsync(new TransferPage());
+            else
+                 Navigation.PushModalAsync(new SignInPage());
+        }
+
+    }
+}

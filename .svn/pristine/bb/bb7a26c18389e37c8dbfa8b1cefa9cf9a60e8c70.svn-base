@@ -1,0 +1,13 @@
+﻿<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://xamarin.com/schemas/2014/forms"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:local="clr-namespace:TrialApp"
+             xmlns:viewModels="using:TrialApp.ViewModels"
+             x:Class="TrialApp.Views.MainPage"
+             >
+
+  <ContentPage.ToolbarItems>
+    <ToolbarItem Text="Filter" Order="Primary" Icon = "../Assets/Filter.png"></ToolbarItem>
+    <ToolbarItem Text="Sign out" Order="Secondary"></ToolbarItem>
+  </ContentPage.ToolbarItems>
+</ContentPage>

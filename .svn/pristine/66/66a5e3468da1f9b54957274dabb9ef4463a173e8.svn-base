@@ -1,0 +1,126 @@
+﻿using System;
+using System.Collections.Generic;
+using System.ComponentModel;
+using System.Runtime.CompilerServices;
+using TrialApp.Services;
+using TrialApp.ViewModels.Inetrfaces;
+using Windows.UI.Xaml;
+using Xamarin.Forms;
+
+namespace TrialApp.ViewModels
+{
+    public abstract class BaseViewModel : INotifyPropertyChanged,IViewModel
+    {
+        #region private variables
+
+        private readonly Dictionary<string, object> _properties = new Dictionary<string, object>();
+        private bool _isBusy;
+        #endregion
+
+        #region public properties
+
+        public event PropertyChangedEventHandler PropertyChanged;
+
+        public string CurrentTime
+        {
+            get { return GetValue<string>(); }
+            set { SetValue(value); }
+        }
+
+        public Color BackColor
+        {
+            get { return GetValue<Color>(); }
+            set { SetValue(value); }
+        }
+
+        public bool IsBusy
+        {
+            get{ return _isBusy;}
+            set
+            {
+                _isBusy = value;
+                OnPropertyChanged();
+            }
+        }
+
+        #endregion
+        private string _userName;
+        public virtual string UserName
+        {
+            get { return _userName; }
+            set
+            {
+                if (value.Contains("\\"))
+                {
+                    var DomainUserName = value.Split('\\');
+                    WebserviceTasks.domain = DomainUserName[0];
+                    _userName = DomainUserName[1];
+                }
+                else
+                {
+                    _userName = value;
+                    WebserviceTasks.domain = "INTRA";
+                }
+                OnPropertyChanged();
+            }
+        }
+        protected void SetValue<T>(T value, [CallerMemberName] string propertyName = null)
+        {
+            if (!_properties.ContainsKey(propertyName))
+            {
+                _properties.Add(propertyName, default(T));
+            }
+
+            var oldValue = GetValue<T>(propertyName);
+            if (!EqualityComparer<T>.Default.Equals(oldValue, value))
+            {
+                _properties[propertyName] = value;
+                OnPropertyChanged(propertyName);
+            }
+        }
+
+        protected T GetValue<T>([CallerMemberName] string propertyName = null)
+        {
+            if (!_properties.ContainsKey(propertyName))
+            {
+                return default(T);
+            }
+            else
+            {
+                return (T)_properties[propertyName];
+            }
+        }
+
+        protected void OnPropertyChanged([CallerMemberName] string name = "")
+        {
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
+        }
+
+        protected BaseViewModel()
+        {
+            // assign white background default
+            BackColor = Color.White;
+        }
+
+        /// <summary>
+        /// start timer to run timer_Tick in certain interval of time
+        /// </summary>
+        public void StartTimer()
+        {
+            CurrentTime = DateTime.Now.ToString("HH:mm");
+            var timer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(30000) };
+            timer.Tick += timer_Tick;
+            timer.Start();
+        }
+
+        /// <summary>
+        /// Recursive method to update display time
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="o"></param>
+        private void timer_Tick(object sender, object o)
+        {
+            this.CurrentTime = DateTime.Now.ToString("HH:mm");
+        }
+    }
+}

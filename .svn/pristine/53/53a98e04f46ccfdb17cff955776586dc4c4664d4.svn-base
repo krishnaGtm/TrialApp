@@ -1,0 +1,284 @@
+﻿using SQLite;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
+using TrialApp.Common;
+using TrialApp.Entities;
+using TrialApp.Entities.Master;
+using TrialApp.Entities.ServiceResponse;
+using TrialApp.ServiceClient;
+
+namespace TrialApp.Services
+{
+    public class MasterDataModule
+    {
+        private static Dictionary<string, string> dictTableSequence = new Dictionary<string, string>();
+        private static int recordsFrmWS;
+        private SequenceTableService sequenceTableService;
+        private FieldSetService fieldSetService;
+        private SoapClient soapClient;
+        public MasterDataModule()
+        {
+            sequenceTableService = new SequenceTableService();
+            fieldSetService = new FieldSetService();
+            soapClient = new SoapClient
+            {
+                EndPointAddress = WebserviceTasks.Endpoint,
+                Credentail = WebserviceTasks.domain + "/" + WebserviceTasks.usernameWS + ":" + WebserviceTasks.passwordWS
+            };
+        }
+        public async Task<bool> getMetaInfo()
+        {
+            var masterTableMetaInfoReqObj = new getMetaInfoForMasterDataTables()
+            {
+                TablesInfo = new TablesInfo1
+                {
+                    tables =
+                        new List<TablesName>
+                        {
+                                new TablesName {table = "Country"},
+                                new TablesName {table = "CropGroup"},
+                                new TablesName {table = "CropRD"},
+                                new TablesName {table = "EntityType"},
+                                new TablesName {table = "FieldSet"},
+                                new TablesName {table = "PropertyOfEntity"},
+                                new TablesName {table = "Trait"},
+                                new TablesName {table = "TraitInFieldSet"},
+                                new TablesName {table = "TraitType"},
+                                new TablesName {table = "TrialRegion"},
+                                new TablesName {table = "TrialType"},
+                                new TablesName {table = "TraitValue"}
+                        }
+                }
+            };
+
+            try
+            {
+                var resp = await
+                    soapClient.GetResponse<getMetaInfoForMasterDataTables, getMetaInfoForMasterDataTablesResponse>(
+                        masterTableMetaInfoReqObj);
+                var data = resp.Tables.Table;
+                dictTableSequence.Clear();
+                foreach (var _val in data)
+                {
+                    dictTableSequence.Add(_val.Name.Trim(), _val.MTSeqMax);
+                }
+                return true;
+            }
+            catch (Exception ex)
+            {
+                return false;
+            }
+        }
+
+
+
+     
+
+        public async Task<bool> InitializeInput()
+        {
+            var maxNrOfRq = 2000;
+            var req = new GetMasterData_V3
+            {
+                AppName = "TrailApp",
+                DatabaseVersion = WebserviceTasks.dbVersion, //WebserviceTasks.dbVersion,
+                DeviceID = WebserviceTasks.deviceId,//WebserviceTasks.deviceId,
+                SoftwareVersion = WebserviceTasks.appVersion,//WebserviceTasks.appVersion,
+                UserID = WebserviceTasks.usernameWS,//WebserviceTasks.usernameWS,
+                NrOfRecords = "2000",
+                onlyActiveRecords = "0",
+                orderBy = "MTSeq",
+                isAscending = "1"
+            };
+            
+            foreach (var tableName in dictTableSequence)
+            {
+                if (
+                    !await
+                        DownloadInsertMasterData(soapClient, tableName, req, maxNrOfRq))
+                {
+                    return false;
+                }
+            }
+            return true;
+        }
+
+        private async Task<bool> DownloadInsertMasterData(SoapClient client,
+            KeyValuePair<string, string> tableName, GetMasterData_V3 req,
+            int maxNrOfRq)
+        {
+            using(var db = new SQLiteConnection(DbPath.GetMasterDbPath()))
+            {
+              var maxVal=  await sequenceTableService.GetMaxSequence(tableName.Key, db);
+
+                if (maxVal >= Convert.ToInt32(tableName.Value)) return true;
+                req.MTSeq = maxVal.ToString();
+                req.TableName = tableName.Key; //tableName;
+                var exception = new Exception();
+                var ExceptionOccured = false;
+
+                try
+                {
+                    ExceptionOccured = false;
+                    var result = await client.GetResponse<GetMasterData_V3, GetMasterData_V3Response>(req);
+                    recordsFrmWS = result.GetMasterDataOutput.Tuple.Count();
+                    if (db.IsInTransaction)
+                        db.Rollback();
+                    db.BeginTransaction();
+                    ParseMasterData(result.GetMasterDataOutput.Tuple, db, tableName.Key);
+                    await sequenceTableService.setMaxVal(tableName.Key, Convert.ToInt32(tableName.Value), db);
+                    db.Commit();
+                    while (recordsFrmWS == maxNrOfRq)
+                    {
+                        ExceptionOccured = false;
+                        maxVal = await sequenceTableService.GetMaxSequence(tableName.Key, db);
+                        req.MTSeq = maxVal.ToString();
+                        var Nextresult = await client.GetResponse<GetMasterData_V3, GetMasterData_V3Response>(req);
+                        if (!(Nextresult.GetMasterDataOutput.Tuple.Count == 1 && Nextresult.GetMasterDataOutput.Tuple[0].Old == null))
+                        {
+                            if (db.IsInTransaction)
+                                db.Rollback();
+                            db.BeginTransaction();
+                            ParseMasterData(Nextresult.GetMasterDataOutput.Tuple, db, tableName.Key);
+                            await sequenceTableService.setMaxVal(tableName.Key, Convert.ToInt32(tableName.Value), db);
+                            db.Commit();
+                        }
+                        else
+                            break;
+                    }
+                }
+                catch (Exception )
+                {
+                    ExceptionOccured = true;
+                }
+                return true;
+            }
+
+
+        }
+        /// <summary>
+        /// prepares the list of corresponding table data and inset in the db
+        /// </summary>
+        /// <param name="tuple : zero or more parent node "></param>
+        /// <param name="sqlite connection"></param>
+        /// <param name="tableName"></param>
+        private void ParseMasterData(List<Entities.ServiceResponse.Tuple> tuple, SQLiteConnection db, string tableName)
+        {
+            switch (tableName)
+            {
+                case "FieldSet":
+                    var fieldSetList = tuple.Select(t => new FieldSet()
+                    {
+                        FieldSetID = t.Old.FieldSet.FieldSetID,
+                        FieldSetCode = t.Old.FieldSet.FieldSetCode,
+                        FieldSetName = t.Old.FieldSet.FieldSetName,
+                        CropGroupID = t.Old.FieldSet.CropGroupID,
+                        CropCode = t.Old.FieldSet.CropCode,
+                        CropGroupLevel = t.Old.FieldSet.CropGroupLevel,
+                        CropLevel = t.Old.FieldSet.CropLevel,
+                        Property = t.Old.FieldSet.Property,
+                        NormalTrait = t.Old.FieldSet.NormalTrait,
+                        MTSeq = t.Old.FieldSet.MTSeq,
+                        MTStat = t.Old.FieldSet.MTStat
+                    }).ToList();
+                    fieldSetService.Update(fieldSetList, db);
+                    break;
+                case "Country":
+                    db.InsertAll(tuple.Select(t => t.Old.Country).ToList());
+                    break;
+                case "CropGroup":
+                    var cropGroupList = tuple.Select(t => new CropGroup()
+                    {
+                        CropGroupID = t.Old.CropGroup.CropGroupID,
+                        CropGroupName = t.Old.CropGroup.CropGroupName,
+                        MTSeq = t.Old.CropGroup.MTSeq
+                    });
+                    db.InsertAll(cropGroupList);
+                    break;
+                case "CropRD":
+                    var cropoRDList = tuple.Select(t => new CropRD
+                    {
+                        CropCode = t.Old.CropRD.CropCode,
+                        CropGroupID = t.Old.CropRD.CropGroupID,
+                        CropName = t.Old.CropRD.CropName,
+                        MTSeq = t.Old.CropRD.MTSeq
+                    });
+                    db.InsertAll(cropoRDList);
+                    break;
+                case "EntityType":
+                    db.InsertAll(tuple.Select(t => t.Old.EntityType).ToList());
+                    break;
+                case "PropertyOfEntity":
+                    db.InsertAll(tuple.Select(t=>t.Old.PropertyOfEntity).ToList());
+                    break;
+                case "Trait":
+                    var traitList = tuple.Select(t => new Trait() {
+                       TraitID = t.Old.Trait.TraitID, 
+                       CropGroupID = t.Old.Trait.CropGroupID,
+                       CropCode = t.Old.Trait.CropCode,
+                       TraitTypeID = t.Old.Trait.TraitTypeID,
+                       TraitName = t.Old.Trait.TraitName,
+                       ColumnLabel = t.Old.Trait.ColumnLabel,
+                       DataType = t.Old.Trait.DataType,
+                       Updatable = t.Old.Trait.Updatable,
+                       DisplayFormat = t.Old.Trait.DisplayFormat,
+                       Editor = t.Old.Trait.Editor,
+                       ListOfValues = t.Old.Trait.ListOfValues,
+                       MinValue = t.Old.Trait.MinValue,
+                       MaxValue = t.Old.Trait.MaxValue,
+                       Property = t.Old.Trait.Property,
+                       MTSeq = t.Old.Trait.MTSeq,
+                       MTStat = t.Old.Trait.MTStat
+                    }).ToList();
+                    db.InsertAll(traitList);
+                    break;
+                case "TraitInFieldSet":
+                    var traitInFieldSet = tuple.Select(t => new TraitInFieldSet
+                    {
+                        FieldSetID = t.Old.TraitInFieldSet.FieldSetID,
+                        TraitID = t.Old.TraitInFieldSet.TraitID,
+                        SortingOrder = t.Old.TraitInFieldSet.SortingOrder,
+                        MTSeq = t.Old.TraitInFieldSet.MTSeq,
+                        MTStat = t.Old.TraitInFieldSet.MTStat
+                    });
+                    db.InsertAll(traitInFieldSet);
+                    break;
+                case "TraitType":
+                    var traitTypeList = tuple.Select(t => new TraitType
+                    {
+                        TraitTypeID = t.Old.TraitType.TraitTypeID,
+                        TraitTypeName = t.Old.TraitType.TraitTypeName,
+                        CropGroupID = t.Old.TraitType.CropGroupID,
+                        MTSeq = t.Old.TraitType.MTSeq,
+                        MTStat = t.Old.TraitType.MTStat
+                    });
+                    db.InsertAll(traitTypeList);
+                    break;
+                case "TrialRegion":
+                    db.InsertAll(tuple.Select(t => t.Old.TrialRegion).ToList());
+                    break;
+                case "TrialType":
+                    db.InsertAll(tuple.Select(t=>t.Old.TraitType).ToList());
+                    break;
+                case "TraitValue":
+                    var traitValueList = tuple.Select(t => new TraitValue
+                    {
+                        TraitValueID = t.Old.TraitValue.TraitValueID,
+                        TraitValueCode = t.Old.TraitValue.TraitValueCode,
+                        TraitValueName= t.Old.TraitValue.TraitValueName,
+                        TraitID = t.Old.TraitValue.TraitID,
+                        SortingOrder = t.Old.TraitValue.SortingOrder,
+                        MTSeq = t.Old.TraitValue.MTSeq,
+                        MTStat = t.Old.TraitValue.MTStat
+                    });
+                    db.InsertAll(traitValueList);
+                    break;
+                default:
+                    break;
+            }
+
+        }
+    }
+}
+

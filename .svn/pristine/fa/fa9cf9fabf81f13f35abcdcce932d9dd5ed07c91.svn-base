@@ -1,0 +1,258 @@
+﻿using System;
+using System.Collections.Generic;
+using TrialApp.Entities.Transaction;
+using TrialApp.Services;
+using TrialApp.ViewModels;
+using Xamarin.Forms;
+
+namespace TrialApp.Views
+{
+    public partial class MainPage
+    {
+        private static readonly Dictionary<string, string> TrialStatus = new Dictionary<string, string>
+        {
+            {"10","New"},
+            {"20","Synced"},
+            {"30","Updated"}
+        };
+
+        private StackLayout _parent;
+        private readonly TrialService _service;
+        private MainPageViewModel _vm;
+        public MainPage()
+        {
+            _service = new TrialService();
+            InitializeComponent();
+        }
+      
+        protected override void OnAppearing()
+        {
+            if(BindingContext == null)
+            {
+                _vm = new MainPageViewModel();// this.Navigation);                
+                BindingContext = _vm;
+            }
+            //_vm.UserName = WebserviceTasks.usernameWS;
+            if (string.IsNullOrEmpty(WebserviceTasks.usernameWS))
+                _vm.UserName = "";
+            else
+                _vm.UserName = WebserviceTasks.usernameWS;
+            LoadTrials();
+            MessagingCenter.Unsubscribe<MainPageViewModel, string[]>(this, "DisplayAlert");
+
+            MessagingCenter.Subscribe<MainPageViewModel, string[]>(this, "DisplayAlert", async (sender, values) =>
+              {
+                  var action = await DisplayAlert(values[0], values[1], "Remove", "Keep");
+                  if (action)
+                  {
+                    await _vm.RemoveTrials();
+                      this.OnAppearing();
+                      _vm.SubmitVisible = false;
+                      _vm.SelectedTileList.Clear();
+                  }
+                  else
+                  {OnAppearing();
+                      _vm.SubmitVisible = false;
+                      _vm.SelectedTileList.Clear();
+                  }
+              });
+
+            // Start Timer
+            _vm.StartTimer();
+        }
+
+        protected override void OnDisappearing()
+        {
+            base.OnDisappearing();
+            _vm.Timer.Stop();
+        }
+        
+
+        private void LoadTrials()
+        {
+            var timeLabel = new Label
+            {
+                FontSize = Device.GetNamedSize(NamedSize.Micro, typeof(Label)),
+                TextColor = Color.Black,
+                Margin = new Thickness(5,0),
+                HorizontalOptions = LayoutOptions.EndAndExpand,
+                VerticalOptions = LayoutOptions.Start
+
+            };
+            _parent = new StackLayout
+            {
+                Orientation = StackOrientation.Vertical,
+                Spacing = 10,
+                VerticalOptions = LayoutOptions.Fill,
+                Padding = 5,
+            };
+            _parent.Children.Clear();
+            var label = new Label
+            {
+                Text = "Trials",
+                FontSize = 50,
+                TextColor = Color.Black,
+                Margin = 5
+
+            };
+            var btnSubmit = new Button
+            {
+                BorderColor = Color.FromHex("#61ce2b"),
+                TextColor = Color.FromHex("#61ce2b"),
+                BackgroundColor = Color.Transparent,
+                HeightRequest = 60,
+                FontSize = Device.GetNamedSize(NamedSize.Medium, typeof(Button)),
+                Margin = 5
+            };
+            timeLabel.SetBinding(Label.TextProperty, "CurrentTime");
+            btnSubmit.SetBinding(IsVisibleProperty, "SubmitVisible");
+            btnSubmit.SetBinding(Button.TextProperty, "SubmitText");
+            btnSubmit.SetBinding(Button.CommandProperty, "SubmitCommand");
+            _parent.Children.Add(timeLabel);
+            _parent.Children.Add(label);
+            _parent.Children.Add(btnSubmit);
+            var grid = new Grid
+            {
+
+                HorizontalOptions = LayoutOptions.StartAndExpand,
+                RowSpacing = 10,
+                ColumnSpacing = 10,
+                RowDefinitions = {
+                    new RowDefinition { Height = new GridLength(1, GridUnitType.Star)}
+                },
+                ColumnDefinitions =
+            {
+                new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) },
+                new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) },
+                new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) },
+            }
+            };
+            var trialList = _service.GetAllTrials();
+            var i = 0;
+            var button = new MR.Gestures.Button
+            {
+                BackgroundColor = Color.Transparent,
+                HeightRequest = 125,
+                WidthRequest = 125,
+                //Text = _userName == "" ? "OFFLINE" : "+",
+                //TextColor = _userName == "" ? Color.Gray : Color.FromHex("#61ce2b"),
+                //BorderColor = _userName == "" ? Color.Gray : Color.FromHex("#61ce2b"),
+                //BorderWidth = 1,
+                //FontSize = _userName == "" ? Device.GetNamedSize(NamedSize.Medium, typeof(Button)) : 70
+                Text = _vm.UserName == "" ? "OFFLINE" : "+",
+                TextColor = _vm.UserName == "" ? Color.Gray : Color.FromHex("#61ce2b"),
+                BorderColor = _vm.UserName == "" ? Color.Gray : Color.FromHex("#61ce2b"),
+                BorderWidth = 1,
+                FontSize = _vm.UserName == "" ? Device.GetNamedSize(NamedSize.Medium, typeof(Button)) : 70
+            };
+            button.Clicked += Button_Clicked;
+            grid.Children.Add(button, (i % 3), i / 3);
+            i++;
+
+            foreach (var trial in trialList)
+            {
+                grid.Children.Add(GetTiles(trial), i % 3, i / 3);
+                i++;
+            }
+            var sv = new ScrollView
+            {
+                Orientation = ScrollOrientation.Vertical,
+                Margin = 5,
+                HorizontalOptions = LayoutOptions.CenterAndExpand,
+                Content = grid
+            };
+
+            
+            _parent.Children.Add(sv);
+            Content = _parent;
+        }
+
+        private View GetTiles(Trial trial)
+        {
+            Label lbl_Status = new Label
+            {
+                Text = TrialStatus[trial.StatusCode.ToString()],
+                VerticalOptions = LayoutOptions.Start,
+                TextColor = Color.White,
+                HorizontalOptions = LayoutOptions.Start,
+                FontSize = (Device.GetNamedSize(NamedSize.Micro, typeof(Label)) - 2),
+            };
+            var selectImage = new Image
+            {
+                HeightRequest = 18,
+                WidthRequest = 18,
+                Source = "../Assets/select.png",
+                HorizontalOptions = LayoutOptions.EndAndExpand
+
+            };
+            var topStack = new StackLayout
+            {
+                Orientation = StackOrientation.Horizontal,
+                BackgroundColor = Color.Transparent,
+                Children = { lbl_Status, selectImage }
+            };
+            selectImage.SetBinding(IsVisibleProperty, "Selected");
+            Label lbl_Name = new Label
+            {
+                Text = trial.TrialName,
+                VerticalOptions = LayoutOptions.CenterAndExpand,
+                HorizontalOptions = LayoutOptions.Center,
+                TextColor = Color.White,
+                FontSize = (Device.GetNamedSize(NamedSize.Small, typeof(Label)) - 2),
+                Margin = 0,
+                HeightRequest = 70,
+                VerticalTextAlignment = TextAlignment.Center
+            };
+            Label lbl_CropCode = new Label
+            {
+                Text = trial.CropCode,
+                VerticalOptions = LayoutOptions.EndAndExpand,
+                HorizontalOptions = LayoutOptions.Start,
+                TextColor = Color.White,
+                FontSize = (Device.GetNamedSize(NamedSize.Micro, typeof(Label)) - 2),
+            };
+            var Tile = new MR.Gestures.StackLayout
+            {
+                BackgroundColor = trial.StatusCode == 30 ? Color.FromHex("#61ce2b") : Color.FromHex("#4990e2"),
+                VerticalOptions = LayoutOptions.FillAndExpand,
+                HorizontalOptions = LayoutOptions.FillAndExpand,
+                Children = { topStack, lbl_Name, lbl_CropCode },
+                StyleId = trial.EZID + "|" + trial.TrialName+ "|"+trial.CropCode,
+                Padding = 5,
+                Spacing = 5
+            };
+            Tile.LongPressing += Tile_LongPressing;
+            Tile.LongPressedCommandParameter = trial;
+            Tile.Tapping += Tile_Tapping;
+            return Tile;
+        }
+        private void Tile_Tapping(object sender, MR.Gestures.TapEventArgs e)
+        {
+
+            var tile = sender as MR.Gestures.StackLayout;
+            Navigation.PushModalAsync(new VarietyPage(Convert.ToInt32(tile.StyleId.Split('|')[0]), tile.StyleId.Split('|')[1], tile.StyleId.Split('|')[2]));
+        }
+
+        private void Tile_LongPressing(object sender, MR.Gestures.LongPressEventArgs e)
+        {
+            if (_vm.UserName == "")
+               Navigation.PushModalAsync(new SignInPage());
+            else {
+            var tile = sender as MR.Gestures.StackLayout;
+            var image = (tile.Children[0] as StackLayout).Children[1] as Image;
+            image.IsVisible = !image.IsVisible;
+            _vm.UpdateSubmit((Trial)tile.LongPressedCommandParameter, image.IsVisible);
+            }
+
+        }
+        private async void Button_Clicked(object sender, EventArgs e)
+        {
+            var btn = sender as Button;
+            if (btn.Text == "+")
+                await Navigation.PushModalAsync(new TransferPage());
+            else
+                await Navigation.PushModalAsync(new SignInPage());
+        }
+
+    }
+}

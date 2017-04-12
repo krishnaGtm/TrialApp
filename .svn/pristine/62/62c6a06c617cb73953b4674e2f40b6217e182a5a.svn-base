@@ -1,0 +1,14 @@
+﻿using TrialApp.ViewModels;
+using Xamarin.Forms;
+
+namespace TrialApp.Views
+{
+    public partial class SignInPage : ContentPage
+    {
+        public SignInPage()
+        {
+            InitializeComponent();
+            BindingContext = new SignInPageViewModel(this.Navigation);
+        }
+    }
+}

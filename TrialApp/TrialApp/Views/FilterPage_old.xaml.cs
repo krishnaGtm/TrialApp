@@ -1,0 +1,90 @@
+﻿using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+using TrialApp.Controls;
+using TrialApp.Entities.Master;
+using TrialApp.Entities.Transaction;
+using Xamarin.Forms;
+
+namespace TrialApp.Views
+{
+    public partial class FilterPage_old
+    {
+        public FilterPage_old(List<Entities.Transaction.Trial> allTrials)
+        {
+            InitializeComponent();
+            ViewModel.Navigation = this.Navigation;
+            ViewModel.TrialList = allTrials;
+            ViewModel.LoadControls();
+        }
+
+        protected override void OnAppearing()
+        {
+            base.OnAppearing();
+            ViewModel.StartTimer();
+        }
+
+        protected override void OnDisappearing()
+        {
+            base.OnDisappearing();
+            //ViewModel.Timer.Stop();
+        }
+
+        private void FilterSwitch_OnToggled(object sender, ToggledEventArgs e)
+        {
+            var value = sender as Switch;
+            if (value == null) return;
+
+            ViewModel.DisableFilter = value.IsToggled;
+            var toggleValue = value.IsToggled ? "1" : "0";
+            ViewModel.ToggleFilterSetting(toggleValue);
+        }
+
+        private void FilterPicker_OnItemSelected(object sender, SelectedItemChangedEventArgs e)
+        {
+            var value = sender as BindablePicker;
+            if (value == null) return;
+            var pickervalue = "";
+            switch (value.StyleId.ToLower())
+            {
+                case "trialtype":
+                    {
+                        var data = (TrialType)value.SelectedItem;
+                        pickervalue = data?.TrialTypeID.ToString();
+                        break;
+                    }
+                case "crop":
+                    {
+                        var data = (CropRD)value.SelectedItem;
+                        pickervalue = data?.CropCode;
+                        break;
+                    }
+                case "cropsegment":
+                    {
+                        var data = (CropSegment)value.SelectedItem;
+                        pickervalue = data?.CropSegmentCode;
+                        break;
+                    }
+                case "trialregion":
+                    {
+                        var data = (TrialRegion)value.SelectedItem;
+                        pickervalue = data?.TrialRegionID.ToString();
+                        break;
+                    }
+                case "country":
+                    {
+                        var data = (Country)value.SelectedItem;
+                        pickervalue = data?.CountryCode;
+                        break;
+                    }
+                default:
+                    break;
+            }
+
+            if (!string.IsNullOrWhiteSpace(pickervalue))
+                ViewModel.ReloadFilter(value.StyleId, pickervalue);
+        }
+    }
+}

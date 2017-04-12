@@ -1,0 +1,32 @@
+﻿using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+
+using Xamarin.Forms;
+
+namespace TrialApp.Views
+{
+    public partial class FilterPage
+    {
+        public FilterPage()
+        {
+            InitializeComponent();
+            ViewModel.Navigation = this.Navigation;
+            ViewModel.LoadControls();
+        }
+
+        protected override void OnAppearing()
+        {
+            base.OnAppearing();
+            ViewModel.StartTimer();
+        }
+
+        protected override void OnDisappearing()
+        {
+            base.OnDisappearing();
+            ViewModel.Timer.Stop();
+        }
+    }
+}

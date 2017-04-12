@@ -1,0 +1,246 @@
+﻿using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+using System.Windows.Input;
+using TrialApp.Entities.Master;
+using TrialApp.Entities.Transaction;
+using TrialApp.Services;
+using TrialApp.Views;
+using Xamarin.Forms;
+
+namespace TrialApp.ViewModels
+{
+    public class FilterPageViewModel : BaseViewModel
+    {
+
+        #region private variables
+
+        private readonly CropRdService _cropRdService;
+        private readonly CountryService _countryService;
+        private readonly TrialTypeService _trialTypeService;
+        private readonly TrialRegionService _trialRegionService;
+
+        private bool _disableFilter;
+
+        private List<CropRD> _cropList;
+        private List<Country> _countryList;
+        private List<TrialRegion> _trialRegionList;
+        private List<TrialType> _trialTypeList;
+        private int _selectedTrialType;
+        private string _selectedCrop;
+        private string _selectedCountry;
+        private int _selectedTrialRegion;
+        private bool _toggleFilter;
+
+        #endregion
+
+        #region public properties
+
+        public List<Entities.Transaction.Trial> TrialList { get; set; }
+        public int SelectedTrialType
+        {
+            get { return _selectedTrialType; }
+            set { _selectedTrialType = value; OnPropertyChanged(); }
+        }
+
+        public List<TrialType> TrialTypeList
+        {
+            get { return _trialTypeList; }
+            set { _trialTypeList = value; OnPropertyChanged(); }
+        }
+
+        public bool ToggleFilter
+        {
+            get { return _toggleFilter; }
+            set { _toggleFilter = value; OnPropertyChanged(); }
+        }
+
+        public List<CropRD> CropList
+        {
+            get { return _cropList; }
+            set { _cropList = value; OnPropertyChanged(); }
+        }
+
+        public List<Country> CountryList
+        {
+            get { return _countryList; }
+            set { _countryList = value; OnPropertyChanged(); }
+        }
+
+
+        public List<TrialRegion> TrialRegionList
+        {
+            get { return _trialRegionList; }
+            set { _trialRegionList = value; OnPropertyChanged(); }
+        }
+
+        public int SelectedTrialRegion
+        {
+            get { return _selectedTrialRegion; }
+            set { _selectedTrialRegion = value; OnPropertyChanged(); }
+        }
+
+        public string SelectedCountry
+        {
+            get { return _selectedCountry; }
+            set { _selectedCountry = value; OnPropertyChanged(); }
+        }
+
+        public string SelectedCrop
+        {
+            get { return _selectedCrop; }
+            set { _selectedCrop = value; OnPropertyChanged(); }
+        }
+
+        public readonly SaveFilterService SaveFilterService;
+        public bool DisableFilter
+        {
+            get { return _disableFilter; }
+            set { _disableFilter = value; OnPropertyChanged(); }
+        }
+
+        public ICommand ApplyFilterCommand { get; set; }
+
+        public ICommand CancelFilterCommand { get; set; }
+
+        #endregion
+
+        public FilterPageViewModel()
+        {
+            _cropRdService = new CropRdService();
+            _countryService = new CountryService();
+            _trialTypeService = new TrialTypeService();
+            _trialRegionService = new TrialRegionService();
+
+            SaveFilterService = new SaveFilterService();
+            
+            CropList = new List<CropRD>();
+            CountryList = new List<Country>();
+            TrialRegionList = new List<TrialRegion>();
+
+            ApplyFilterCommand = new ApplyfilterOperation();
+            CancelFilterCommand = new CancelOperation();
+
+            //Load default values
+            SelectedCrop = "All";
+            SelectedTrialRegion = 0;
+            SelectedTrialType = 0;
+            SelectedCountry = "All";
+
+        }
+
+        public async void LoadControls()
+        {
+            // commas separated list to limit data to only downloaded data
+            var downloadedList = string.Join(",", TrialList.Select(x => "'" + x.CropCode + "'").Distinct());
+            var cropdata = await _cropRdService.GetCropListAsync(downloadedList);
+
+            downloadedList = "";
+            var trialregiondata = await _trialRegionService.GetTrialRegionListAsync(downloadedList);
+
+            downloadedList = string.Join(",", TrialList.Select(x => x.TrialTypeID).Distinct());
+            var trialtypedata = await _trialTypeService.GetTrialTypeListAsync(downloadedList);
+
+            downloadedList = string.Join(",", TrialList.Select(x => "'" + x.CountryCode + "'").Distinct());
+            var countrydata = await _countryService.GetCountryListAsync(downloadedList);
+
+            cropdata.Insert(0, new CropRD() { CropCode = "All", CropName = "All" });
+            trialregiondata.Insert(0, new TrialRegion() { TrialRegionID = 0, TrialRegionName = "All" });
+            trialtypedata.Insert(0, new TrialType() { TrialTypeID = 0, TrialTypeName = "All" });
+            countrydata.Insert(0, new Country() { CountryCode = "All", CountryName = "All" });
+
+            CropList = cropdata;
+            TrialRegionList = trialregiondata;
+            TrialTypeList = trialtypedata;
+            CountryList = countrydata;
+
+            var savedFilter = await SaveFilterService.GetSaveFilterAsync();
+
+            if (savedFilter == null) return;
+
+            ToggleFilter = true;
+
+            foreach (var val in savedFilter)
+            {
+                switch (val.Field)
+                {
+                    case "CropCode":
+                        SelectedCrop = val.FieldValue;
+                        break;
+                    case "CountryCode":
+                        SelectedCountry = val.FieldValue;
+                        break;
+                    case "TrialRegionId":
+                        {
+                            var data = 0;
+                            int.TryParse(val.FieldValue, out data);
+                            SelectedTrialRegion = data;
+                        }
+                        break;
+                    case "TrialTypeId":
+                        {
+                            var data = 0;
+                            int.TryParse(val.FieldValue, out data);
+                            SelectedTrialType = data;
+                        }
+                        break;
+                }
+            }
+        }
+    }
+
+    internal class ApplyfilterOperation : ICommand
+    {
+        public bool CanExecute(object parameter)
+        {
+            return true;
+        }
+
+        public async void Execute(object parameter)
+        {
+            var vm = parameter as FilterPageViewModel;
+            if (vm == null) return;
+
+            var savefilterList = new List<SaveFilter>
+            {
+                new SaveFilter() {Field = "CropCode", FieldValue = vm.SelectedCrop},
+                new SaveFilter() {Field = "TrialRegionId", FieldValue = vm.SelectedTrialRegion.ToString()},
+                new SaveFilter() {Field = "TrialTypeId", FieldValue = vm.SelectedTrialType.ToString()},
+                new SaveFilter() {Field = "CountryCode", FieldValue = vm.SelectedCountry}
+            };
+
+            await vm.SaveFilterService.SaveFilterAsync(savefilterList);
+            await vm.Navigation.PopModalAsync();
+        }
+
+        public event EventHandler CanExecuteChanged;
+    }
+
+    public class FilterSet : ObservableViewModel
+    {
+        public string FilterLabel { get; set; }
+
+        private List<CodeValuePair> _filterValue;
+        private string _selectedValue;
+
+        public List<CodeValuePair> FilterValue
+        {
+            get { return _filterValue; }
+            set { _filterValue = value; OnPropertyChanged(); }
+        }
+
+        public string SelectedPickerValue
+        {
+            get { return _selectedValue; }
+            set { _selectedValue = value; OnPropertyChanged(); }
+        }
+    }
+
+    public class CodeValuePair
+    {
+        public string Code { get; set; }
+        public string Value { get; set; }
+    }
+}

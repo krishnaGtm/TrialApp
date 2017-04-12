@@ -1,0 +1,31 @@
+﻿
+using System;
+using System.Collections.Generic;
+using System.Threading.Tasks;
+using SQLite;
+using TrialApp.DataAccess;
+using TrialApp.Entities.Master;
+
+namespace TrialApp.Services
+{
+    public class FieldSetService
+    {
+        private FieldSetRepository repo;
+        public FieldSetService()
+        {
+            repo = new FieldSetRepository();
+            
+        }
+
+        internal void Update(List<FieldSet> fieldsetList, SQLiteConnection db)
+        {
+            repo.InsertAll(fieldsetList, db);
+        }
+
+        public List<FieldSet> GetFieldSetList(string cropCode)
+        {
+            var fieldSetList = repo.Get(cropCode);
+            return fieldSetList;
+        }
+    }
+}

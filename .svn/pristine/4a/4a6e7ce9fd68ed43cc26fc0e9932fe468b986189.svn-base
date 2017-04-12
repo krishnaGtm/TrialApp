@@ -1,0 +1,121 @@
+﻿<?xml version="1.0" encoding="UTF-8"?>
+<ContentView xmlns="http://xamarin.com/schemas/2014/forms" 
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml" 
+             x:Class="TrialApp.UserControls.EntryUserControl"
+             xmlns:BindablePickerControl="clr-namespace:TrialApp.Controls;assembly=TrialApp"
+             BindingContext="{Binding}"
+  >
+
+    <ContentView.Content>
+        <ListView x:Name="listView" ItemsSource="{Binding}" >
+            <ListView.ItemTemplate>
+                <DataTemplate>
+                    <ViewCell>
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                            </Grid.RowDefinitions>
+                            <Label Text="{Binding ColumnLabel}" Margin ="0,5,0,5" FontSize="Small">
+
+                            </Label>
+                            <!--<Entry Grid.Row="1" Text="{Binding ColumnLabel}" />-->
+                            <Frame OutlineColor="Black" Grid.Row ="1" Padding="5">
+                                <Grid >
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="6" />
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <!--<Label Text="{Binding DataType}" />-->
+                                    <Grid BackgroundColor ="Red" IsVisible="{Binding ValidationErrorVisible}"/>
+                                    <Grid BackgroundColor ="Green" IsVisible="{Binding ChangedValueVisible}"/>
+                                    <Entry  Grid.Column="1" 
+                                            Text="{Binding ObsValue}" 
+                                            HeightRequest="35"
+                                            IsVisible="{Binding CharVisible}"
+                                            Keyboard="Text"
+                                            BackgroundColor ="Transparent" 
+                                            IsEnabled="{Binding Updatable}"
+                                            Margin="0,0,0,0"
+                                            HorizontalOptions="FillAndExpand"
+                                            ClassId="{Binding Tag}"
+                                            Unfocused="OnUnFocusEx"
+                                            VerticalOptions="Fill">
+                                    </Entry>
+                                    <Entry  Grid.Column="1" 
+                                            Text="{Binding ObsValue}" 
+                                            IsVisible="{Binding IntOrDecVisible}"
+                                            Keyboard="Numeric"
+                                            HeightRequest="35"
+                                            BackgroundColor ="Transparent" 
+                                            IsEnabled="{Binding Updatable}"
+                                            Margin="0,0,0,0"
+                                            HorizontalOptions="FillAndExpand"
+                                            ClassId="{Binding Tag}"
+                                            Unfocused="OnUnFocusEx"
+                                            VerticalOptions="Fill">
+                                        
+                                    </Entry>
+                                    <BindablePickerControl:BindablePicker
+                                            x:Name="listPicker"
+                                            HorizontalOptions="FillAndExpand"
+                                            Margin="0,0,0,0"
+                                            BackgroundColor="Transparent"
+                                            SelectedValue="{Binding ObsValue}"
+                                            IsVisible="{Binding ListVisible}"
+                                            Grid.Column="1" 
+                                            ItemsSource = "{Binding ListSource}"
+                                            DisplayMemberPath = "TraitValueName"
+                                            SelectedValuePath = "TraitValueCode"
+                                            ClassId="{Binding Tag}"
+                                            SelectedIndexChanged="OnSelectedIndexChangedEx">
+                                    </BindablePickerControl:BindablePicker>
+                                    <Grid Grid.Column="1">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <BindablePickerControl:NullableDatePicker x:Name="datepickercontrol"
+                                                IsEnabled="{Binding Updatable}"
+                                                IsFocusedEx="{Binding DatePickerVisible, Mode=TwoWay}"
+                                                Format=""
+                                                NullableDate="{Binding DateValue, Mode=TwoWay}"
+                                                Grid.Column="0"
+                                                HeightRequest="35"
+                                                IsVisible="{Binding DatePickerVisible}"
+                                                ClassId="{Binding Tag}"
+                                                Margin="0,0,0,0"                  
+                                                HorizontalOptions="FillAndExpand"
+                                                DateSelected="OnDateSelectedEx"
+                                                Unfocused="OnDatePicker_Unfocused">
+                                        </BindablePickerControl:NullableDatePicker>
+                                        <Entry x:Name="DateEntry"
+                                                IsEnabled="{Binding Updatable}"
+                                                Text="{Binding DateValueString, Mode=TwoWay}"
+                                                Grid.Column="0"
+                                                HeightRequest="35"
+                                                IsVisible="{Binding DateVisible}"
+                                                ClassId="{Binding Tag}"
+                                                Margin="0,0,0,0"
+                                                HorizontalOptions="FillAndExpand"
+                                                Focused="OnFocusEX">
+                                        </Entry>
+                                        <Button x:Name="TodayDate" Text="T" FontSize="Small" Grid.Column="1"
+                                                IsVisible="{Binding DateVisible}"
+                                                ClassId="{Binding Tag}"
+                                                WidthRequest="30"
+                                                HeightRequest="30"
+                                                Clicked="OnClickedEx" BorderRadius="0" BorderWidth="0" BorderColor="Transparent">
+                                        </Button>
+                                    </Grid>
+                                    <Button x:Name="RevertBtn" Text="Revert" Grid.Column="2" WidthRequest="35" HeightRequest="35" BorderRadius="0" BorderWidth="0" BorderColor="Transparent" Image="../Assets/revert.png" IsVisible="{Binding RevertVisible}" Clicked="OnRevertClickedEX" ClassId="{Binding Tag}"/>
+                                </Grid>
+                            </Frame>
+                        </Grid>
+                    </ViewCell>
+                </DataTemplate>
+            </ListView.ItemTemplate>
+        </ListView>
+    </ContentView.Content>
+</ContentView>

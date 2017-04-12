@@ -1,0 +1,31 @@
+﻿using System;
+using Xamarin.Forms;
+
+namespace TrialApp.UserControls
+{
+    public partial class EntryUserControl : ContentView
+    {
+        public EventHandler<FocusEventArgs> UnFocusEx;
+        public EventHandler SelectedIndexChangedEx;
+        public EntryUserControl()
+        {
+            InitializeComponent();
+        }
+        public void OnUnFocusEx(object sender, FocusEventArgs e)
+        {
+            UnFocusEx?.Invoke(sender, e);
+        }
+        public void OnSelectedIndexChangedEx(object sender,EventArgs e)
+        {
+            SelectedIndexChangedEx?.Invoke(sender, e);
+        }
+        private void TextEntryOnUnfocused(object sender, FocusEventArgs focusEventArgs)
+        {
+            OnUnFocusEx(sender, focusEventArgs);
+        }
+        private void listPicker_SelectedIndexChanged(object sender, EventArgs e)
+        {
+            OnSelectedIndexChangedEx(sender, e);
+        }
+    }
+}

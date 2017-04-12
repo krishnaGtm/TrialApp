@@ -1,0 +1,45 @@
+﻿<?xml version="1.0" encoding="utf-8" ?>
+<pages:ViewPage xmlns="http://xamarin.com/schemas/2014/forms"
+                xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+                x:Class="TrialApp.Views.EditTrialPropertiesPage"
+                xmlns:controls="clr-namespace:TrialApp.Controls;assembly=TrialApp"
+                xmlns:viewModel="clr-namespace:TrialApp.ViewModels;assembly=TrialApp"
+                xmlns:pages="clr-namespace:TrialApp.Views.Abstract;assembly=TrialApp"
+                xmlns:viewModels="clr-namespace:TrialApp.ViewModels"
+                xmlns:controls1="using:TrialApp.Controls"
+                xmlns:Propertycontrol="clr-namespace:TrialApp.UserControls;assembly=TrialApp"
+                x:TypeArguments="viewModels:EditTrialPropertiesPageViewModel"  >
+
+
+
+  <ContentPage.BindingContext>
+    <viewModel:EditTrialPropertiesPageViewModel/>
+  </ContentPage.BindingContext>
+
+  <StackLayout Padding="10" Orientation="Vertical">
+    <Frame x:Name="HeaderFrame"  BackgroundColor="{Binding HeaderColor, Mode=TwoWay}" Padding="10,5"  Margin="-10">
+      <StackLayout Orientation="Vertical" Spacing="5">
+        <Label Text="{Binding CurrentTime}"  HorizontalOptions="EndAndExpand" VerticalOptions="Start" FontSize="16" TextColor="Black"/>
+        <Label Text="{Binding CurrentTrial}" TextColor="{Binding HeaderTextColor}" VerticalOptions="Center" HorizontalOptions="Start" FontSize="20" />
+        <Label Text="Edit trial" TextColor="{Binding HeaderTextColor}" VerticalOptions="Center" HorizontalOptions="Start" Font="Large" Margin="0,0,0,5"/>
+      </StackLayout>
+    </Frame>
+
+    <controls:BindablePicker
+                x:Name="PropertysetPicker"
+                ItemsSource="{Binding PropertySetList, Mode=TwoWay}"
+                BackgroundColor="#ebebeb"
+                Margin="0,20,0,20"
+                DisplayMemberPath="Name"
+                SelectedValuePath="Id"
+                SelectedValue="{Binding Path=FieldSetPair.Id, Mode=TwoWay}"
+                SelectedIndexChanged="PropertysetPicker_OnSelectedIndexChanged"
+                SelectedIndex="{Binding PickerSelectedIndex}"
+                
+            />
+
+    <Propertycontrol:EntryUserControl x:Name="TrialPropertiesUserControl" BindingContext="{Binding TraitList, Mode=TwoWay}"></Propertycontrol:EntryUserControl>
+
+  </StackLayout>
+
+</pages:ViewPage>

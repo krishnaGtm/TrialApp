@@ -1,0 +1,124 @@
+﻿using System;
+using System.Collections.Generic;
+using System.Threading.Tasks;
+using System.Windows.Input;
+using TrialApp.Services;
+using TrialApp.Views;
+using Xamarin.Forms;
+
+namespace TrialApp.ViewModels
+{
+    public class VarietyPageViewModel : BaseViewModel
+    {
+        #region private variables
+
+        private readonly TrialEntryAppService _trialEntryAppService;
+        private string _mainText;
+
+        #endregion
+
+        #region public properties
+
+        public List<VarietyData> VarietyList { get; set; }
+        public string MainText { get { return _mainText; } set { _mainText = value;
+                OnPropertyChanged();
+            } }
+        public List<object> TrialPropertiesParams { get; set; } 
+        public ICommand TrialPropCommand { get; set; }
+
+        public ICommand GoToAddVarietyScreen { get; set; }
+        public INavigation Navigation { get; set; }
+        public int TrialEZID { get; set; }
+        public string TrialName { get; set; }
+        public string CropCode { get; set; }
+
+        #endregion
+
+        public VarietyPageViewModel()
+        {
+            TrialPropCommand = new TrialProperties();
+            GoToAddVarietyScreen = new GoToAddVarietyScreenCommand();
+            TrialPropertiesParams = new List<object>();
+            _trialEntryAppService = new TrialEntryAppService();
+        }
+
+        public async void LoadVarietyPageViewModel(int ezid, string trialName, Action<List<VarietyData>> predicate)
+        {
+            var res = await LoadVarieties(ezid, trialName);
+            predicate(res);
+        }
+
+        public void LoadTrialPropParams()
+        {
+            TrialPropertiesParams.Add(TrialEZID);
+            TrialPropertiesParams.Add(CropCode);
+            TrialPropertiesParams.Add(Navigation);
+        }
+
+
+        private async Task<List<VarietyData>> LoadVarieties(int ezid, string trialName)
+        {
+            MainText = trialName;
+            VarietyList = new List<VarietyData>();
+
+            var trialList = await _trialEntryAppService.GetVarietiesListAsync(ezid);
+            var i = 0;
+
+            foreach (var val in trialList)
+            {
+                i++;
+                var vvar = new VarietyData
+                {
+                    VarietyId = val.EZID,
+                    FieldNumber = val.FieldNumber,
+                    VarietyName = val.VarietyName,
+                    Crop = val.CropCode
+                };
+                VarietyList.Add(vvar);
+
+            }
+            return VarietyList;
+        }
+
+        private class GoToAddVarietyScreenCommand : ICommand
+        {
+            public event EventHandler CanExecuteChanged;
+
+            public bool CanExecute(object parameter)
+            {
+                return true;
+            }
+
+            public async void Execute(object parameter)
+            {
+                var ViewModel = parameter as VarietyPageViewModel;
+                 await App.MainNavigation.PushAsync(new AddVarietyPage(ViewModel.TrialEZID,ViewModel.TrialName,ViewModel.CropCode));
+            }
+        }
+    }
+
+    internal class TrialProperties : ICommand
+    {
+        public bool CanExecute(object parameter)
+        {
+            return true;
+        }
+
+        public void Execute(object parameter)
+        {
+            var list = parameter as List<object>;
+            if (list != null)
+            {
+                var trialEzId = (int)list[0];
+                var crop = (string)list[1];
+                var navigation = (INavigation)list[2];
+                Device.BeginInvokeOnMainThread(async () =>
+                {
+                   await App.MainNavigation.PushAsync(new EditTrialPropertiesPage(trialEzId, crop));
+                });
+            }
+        }
+
+        public event EventHandler CanExecuteChanged;
+    }
+}

@@ -1,0 +1,65 @@
+﻿<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://xamarin.com/schemas/2014/forms"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:local="clr-namespace:TrialApp.ViewModels;assembly=TrialApp.ViewModels"
+             x:Class="TrialApp.Views.TransferPage">
+    <ContentPage.ToolbarItems>
+        <ToolbarItem Text="Filter" Order="Primary" Icon = "../Assets/Filter.png" Command="{Binding GoToFilterScreen}" CommandParameter="{Binding}"></ToolbarItem>
+    </ContentPage.ToolbarItems>
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"></RowDefinition>
+            <RowDefinition Height="*"></RowDefinition>
+        </Grid.RowDefinitions>
+        <StackLayout Orientation="Vertical" Padding="5" Grid.Row="0">
+            <Label x:Name="LabelTime" TextColor="Black" Margin="5,0" HorizontalOptions="EndAndExpand" VerticalOptions="Start" Text="{Binding CurrentTime}"></Label>
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"></ColumnDefinition>
+                    <ColumnDefinition Width="Auto"></ColumnDefinition>
+                </Grid.ColumnDefinitions>
+                <Label  Text="Download" FontSize="50" Margin="5" LineBreakMode="TailTruncation"></Label>
+                <StackLayout Orientation="Horizontal" HorizontalOptions="EndAndExpand" Grid.Column="1">
+                    <Frame OutlineColor="Black" HeightRequest="40"  Padding="0" VerticalOptions="Center" IsVisible="{Binding SearchVisible}">
+                        <Entry x:Name="EntrySearch" HeightRequest="40" WidthRequest="150" Placeholder="Search" Text="{Binding SearchText,Mode= TwoWay}" IsVisible="{Binding SearchVisible}"></Entry>
+                    </Frame>
+                    <Image  Source="../Assets/search.png" WidthRequest="30" HeightRequest="30" Aspect="AspectFit" VerticalOptions="Center"  HorizontalOptions="EndAndExpand" IsEnabled="{Binding EnableControls}">
+                        <Image.GestureRecognizers>
+                            <TapGestureRecognizer Tapped="SearchImage_Click"></TapGestureRecognizer>
+                        </Image.GestureRecognizers>
+                    </Image>
+                </StackLayout>
+            </Grid>
+        </StackLayout>
+        <StackLayout Orientation="Vertical" Grid.Row="1">
+            <ActivityIndicator  HorizontalOptions ="FillAndExpand" VerticalOptions ="FillAndExpand" IsVisible="{Binding IsBusy}" IsRunning ="{Binding IsBusy}"/>
+            <Button  VerticalOptions="Fill" Text="{Binding BtnSelectTxt}" BorderColor="#2B7DF4" Command="{Binding SelectAllCommand}"
+               IsEnabled="{Binding LoginButtonEnable,Mode=TwoWay}"
+               BackgroundColor="#2B7DF4"/>
+            <Button   Text="{Binding BtnDownloadTxt}"    BorderColor="#2B7DF4" Command="{Binding DownloadCommand}" Margin="10"
+             IsVisible="{Binding BtnDownloadVisible}"
+              BackgroundColor="#2B7DF4"  HeightRequest="60"/>
+            <ListView x:Name="UsersView" ItemsSource="{Binding TrialList}"  RowHeight="70" Margin="10,0,10,10">
+                <ListView.ItemTemplate>
+                    <DataTemplate>
+                        <ViewCell>
+                            <ViewCell.View>
+                                <Grid Margin="0,0,0,5">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"></ColumnDefinition>
+                                        <ColumnDefinition Width="Auto"></ColumnDefinition>
+                                    </Grid.ColumnDefinitions>
+                                    <StackLayout Orientation="Vertical" HorizontalOptions ="Start">
+                                        <Label Text="{Binding TrialName}"  FontSize="Micro" LineBreakMode="TailTruncation"/>
+                                        <Label Text="{Binding TrialDetails}" FontAttributes="Bold" LineBreakMode="TailTruncation"/>
+                                    </StackLayout>
+                                    <Switch IsToggled="{Binding IsSelected, Mode=TwoWay}" HorizontalOptions="EndAndExpand" Margin="10,0,0,0" Grid.Column="1"/>
+                                </Grid>
+                            </ViewCell.View>
+                        </ViewCell>
+                    </DataTemplate>
+                </ListView.ItemTemplate>
+            </ListView>
+        </StackLayout>
+    </Grid>
+</ContentPage>

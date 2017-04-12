@@ -1,0 +1,69 @@
+﻿using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+using Enza.DataAccess;
+using SQLite;
+using TrialApp.Common;
+using TrialApp.Entities.Transaction;
+
+namespace TrialApp.DataAccess
+{
+    public class ObservationAppRepository : Repository<ObservationApp>
+    {
+        public ObservationAppRepository() : base(DbPath.GetTransactionDbPath())
+        {
+        }
+
+        public ObservationAppRepository(SQLiteAsyncConnection connection) : base(connection)
+        {
+        }
+
+        public ObservationApp GetObservations(string ezId, int traitId)
+        {
+            var obsData = DbContext().Query<ObservationApp>(
+                " SELECT * from [ObservationApp] AS [data] where "
+                + " case when (select max (DateCreated) from observationapp where  EZID = [data].EZID  and TraitID = [data].TraitID and modified = 1 )  is not null "
+                + " then DateCreated = (select max (DateCreated) from observationapp where  EZID = [data].EZID  and TraitID = [data].TraitID and modified = 1 )  and modified = 1 "
+                + " else case when (select DateCreated from observationapp where  EZID = [data].EZID  and TraitID = [data].TraitID and observationid is null) is not null "
+                + " then  DateCreated = (select max (DateCreated) from observationapp where  EZID = [data].EZID  and TraitID = [data].TraitID and observationid is null) "
+                + " else case when  ( select max (observationid) from observationapp where  EZID = [data].EZID  and TraitID = [data].TraitID) is not null "
+                + " then observationid= ( select max (observationid) from observationapp where  EZID = [data].EZID  and TraitID = [data].TraitID)  end end end "
+                + " and [data].traitId = ? and  [data].ezid= ? ", traitId, ezId ).FirstOrDefault();
+            return obsData;
+        }
+
+        public async Task<List<ObservationApp>> GetObservationAll(string ezId, string traitId)
+        {
+            var obsData = await DbContextAsync().QueryAsync<ObservationApp>(
+                " SELECT * from [ObservationApp] AS [data] where "
+                + " case when (select max (DateCreated) from observationapp where  EZID = [data].EZID  and TraitID = [data].TraitID and modified = 1 )  is not null "
+                + " then DateCreated = (select max (DateCreated) from observationapp where  EZID = [data].EZID  and TraitID = [data].TraitID and modified = 1 )  and modified = 1 "
+                + " else case when (select DateCreated from observationapp where  EZID = [data].EZID  and TraitID = [data].TraitID and observationid is null) is not null "
+                + " then  DateCreated = (select max (DateCreated) from observationapp where  EZID = [data].EZID  and TraitID = [data].TraitID and observationid is null) "
+                + " else case when  ( select max (observationid) from observationapp where  EZID = [data].EZID  and TraitID = [data].TraitID) is not null "
+                + " then observationid= ( select max (observationid) from observationapp where  EZID = [data].EZID  and TraitID = [data].TraitID)  end end end "
+                + " and [data].traitId in ( " + traitId + " ) and  [data].ezid= ? ", ezId);
+            return obsData;
+        }
+        public async Task<List<ObservationApp>> GetObservationWithDateAndUser(ObservationApp observation)
+        {
+           return await DbContextAsync().QueryAsync<ObservationApp>("select * from ObservationApp where EZID = ? and TraitID = ? and UserIDCreated = ? and  date(DateCreated) = ?",
+                                observation.EZID, observation.TraitID, observation.UserIDCreated, observation.DateCreated);
+        }
+
+        public async Task UpdateObservationValue(ObservationApp observation)
+        {
+            await DbContextAsync().ExecuteAsync("update ObservationApp set ObsValueChar = ?, ObsValueDate = ?, ObsValueDec = ? , ObsValueInt = ? ,   Modified = ? where EZID = ? and TraitID = ? and UserIDCreated = ? and  DateUpdated = ?",
+                                observation.ObsValueChar,
+                                observation.ObsValueDate,//?.ToString("yyyy-MM-dd"),
+                                observation.ObsValueDec,
+                                observation.ObsValueInt,
+                                true, observation.EZID,
+                                observation.TraitID,
+                                observation.UserIDCreated,
+                                DateTime.UtcNow.Date.ToString("yyyy-MM-dd"));
+        }
+    }
+}

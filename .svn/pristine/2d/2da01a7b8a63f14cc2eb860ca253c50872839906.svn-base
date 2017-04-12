@@ -1,0 +1,89 @@
+﻿<?xml version="1.0" encoding="UTF-8"?>
+<ContentView xmlns="http://xamarin.com/schemas/2014/forms" 
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml" 
+             x:Class="TrialApp.UserControls.EntryUserControl"
+             xmlns:BindablePickerControl="clr-namespace:TrialApp.Controls;assembly=TrialApp"
+  >
+  
+  <ContentView.Content>
+  <ListView x:Name="listView" ItemsSource="{Binding TraitList}">
+  <ListView.ItemTemplate>
+    <DataTemplate>
+      <ViewCell>
+        <Grid >
+          <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+          </Grid.RowDefinitions>
+          <Label Text="{Binding ColumnLabel}" FontAttributes="Bold" Margin ="0,5,0,5" FontSize="Default">
+            
+          </Label>
+          <!--<Entry Grid.Row="1" Text="{Binding ColumnLabel}" />-->
+            <Frame OutlineColor="Black" Grid.Row ="1" Padding="5">
+                <Grid >
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="6" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <!--<Label Text="{Binding DataType}" />-->
+                    <Grid BackgroundColor ="Red"/>
+                    <Entry  Grid.Column="1" 
+                        Text="{Binding ObsValue}" 
+                        IsVisible="{Binding CharVisible}"
+                        Keyboard="Text"
+                        BackgroundColor ="Transparent" 
+                        IsEnabled="{Binding updatable}"
+                        Margin="0,0,0,0"
+                        HorizontalOptions="FillAndExpand"
+                        ClassId="{Binding Tag}"
+                        Unfocused="OnUnFocusEx"
+                        />
+                    <Entry  Grid.Column="1" 
+                        Text="{Binding ObsValue}" 
+                        IsVisible="{Binding IntOrDecVisible}"
+                        Keyboard="Numeric"
+                        BackgroundColor ="Transparent" 
+                        IsEnabled="{Binding updatable}"
+                        Margin="0,0,0,0"
+                        HorizontalOptions="FillAndExpand"
+                        ClassId="{Binding Tag}"
+                        Unfocused="OnUnFocusEx"
+                        />
+                    <BindablePickerControl:BindablePicker
+                        x:Name="listPicker"
+                        HorizontalOptions="FillAndExpand"
+                        SelectedValue="{Binding ObsValue}"
+                        IsVisible="{Binding ListVisible}"
+                        Grid.Column="1" 
+                        ItemsSource = "{Binding ListSource}"
+                        DisplayMemberPath = "TraitValueName"
+                        SelectedValuePath = "TraitValueCode"
+                        ClassId="{Binding Tag}"
+                        SelectedIndexChanged="listPicker_SelectedIndexChanged"
+                        
+                        />
+                    <BindablePickerControl:NullableDatePicker 
+                        IsEnabled="{Binding updatable}" 
+                        NullableDate="{Binding DateValue, Mode=TwoWay}"
+                        Grid.Column="1"
+                        IsVisible="{Binding DateVisible}"
+                        ClassId="{Binding Tag}"
+                        Margin="0,0,0,0"
+                        HorizontalOptions="FillAndExpand"
+                        />
+
+                    <Grid Grid.Column ="2" BackgroundColor ="Red">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="15" />
+                        </Grid.ColumnDefinitions>
+                    </Grid>
+                </Grid>
+            </Frame>
+        </Grid>
+      </ViewCell>
+    </DataTemplate>
+  </ListView.ItemTemplate>
+</ListView>
+  </ContentView.Content>
+</ContentView>

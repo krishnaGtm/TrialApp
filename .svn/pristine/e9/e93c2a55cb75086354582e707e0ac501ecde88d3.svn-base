@@ -1,0 +1,149 @@
+﻿using Windows.UI.ViewManagement;
+using System;
+using System.Collections.Generic;
+using System.Windows.Input;
+using TrialApp.Entities.Transaction;
+using TrialApp.Services;
+using System.Linq;
+using System.Threading.Tasks;
+using Xamarin.Forms;
+using TrialApp.Views;
+
+namespace TrialApp.ViewModels
+{
+    public class MainPageViewModel : BaseViewModel
+    {
+        private bool _selected = false;
+        private bool _submitVisible = false;
+        private string _submitText;
+        private List<Trial> _selectedTileList = new List<Trial>();
+        internal INavigation _navigation;
+        private bool _displayConfirmation;
+        public TrialService trialService = new TrialService();
+        private string title = "Remove submitted trials?";
+        private string message = "Once removed, submitted trials will no longer be available on this device." +
+                                  System.Environment.NewLine + System.Environment.NewLine + "You can always download trials again.";
+        public bool Selected
+        {
+            get { return _selected; }
+            set
+            {
+                _selected = value;
+                OnPropertyChanged();
+            }
+        }
+
+        public bool SubmitVisible
+        {
+            get { return _submitVisible; }
+            set
+            {
+                _submitVisible = value;
+                OnPropertyChanged();
+            }
+        }
+
+        internal async Task RemoveTrials()
+        {
+            await trialService.RemoveTrialFromDevice(SelectedTileList);
+        }
+
+        public string SubmitText
+        {
+            get { return _submitText; }
+            set
+            {
+                _submitText = value;
+                OnPropertyChanged();
+            }
+        }
+
+        internal async Task DeleteTrials()
+        {
+            await trialService.RemoveTrialFromDevice(SelectedTileList);
+        }
+
+        public ICommand SubmitCommand { get; set; }
+        public List<Trial> SelectedTileList
+        {
+            get { return _selectedTileList; }
+            set
+            {
+                _selectedTileList = value;
+                OnPropertyChanged();
+            }
+        }
+
+        public MainPageViewModel(INavigation navigation)
+        {
+            _navigation = navigation;
+            var task = StatusBar.GetForCurrentView().HideAsync();
+            StartTimer();
+            SubmitCommand = new SubmitOperation(this);
+        }
+
+        public bool DisplayConfirmation
+        {
+            get { return _displayConfirmation; }
+            set
+            {
+                _displayConfirmation = value;
+                if (value)
+                    DisplayAlert();
+                OnPropertyChanged();
+            }
+        }
+
+        public void DisplayAlert()
+        {
+            
+            string[] values = { title, message };
+            MessagingCenter.Send(this, "DisplayAlert", values);
+        }
+
+        internal void UpdateSubmit(Trial selectedTrial, bool isAdded)
+        {
+            if (isAdded)
+                SelectedTileList.Add(selectedTrial);
+            else
+                SelectedTileList.Remove(selectedTrial);
+            if (SelectedTileList.Count > 0)
+            {
+                SubmitVisible = true;
+                SubmitText = "SUBMIT (" + SelectedTileList.Count + ")";
+            }
+            else
+                SubmitVisible = false;
+        }
+    }
+    internal class SubmitOperation : ICommand
+    {
+        private MainPageViewModel mainPageViewModel;
+        public SubmitOperation(MainPageViewModel mainPageViewModel)
+        {
+            this.mainPageViewModel = mainPageViewModel;
+        }
+
+        public event EventHandler CanExecuteChanged;
+
+        public bool CanExecute(object parameter)
+        {
+            return true;
+        }
+
+        public async void Execute(object parameter)
+        {
+            var listOFModified = mainPageViewModel.SelectedTileList.Where(trial => trial.StatusCode == 30).ToList();
+            if (listOFModified.Any())
+            {
+                //IsBusy = true;
+                mainPageViewModel.DisplayConfirmation = await mainPageViewModel.trialService.Uploaddata(listOFModified);
+                //IsBusy = false;
+            }
+            else
+            {
+                mainPageViewModel.DisplayConfirmation = true;
+            }
+        }
+    }
+}

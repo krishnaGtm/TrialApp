@@ -1,0 +1,576 @@
+﻿using System;
+using System.Collections.Generic;
+using System.Windows.Input;
+using TrialApp.Common;
+using TrialApp.Controls;
+using TrialApp.Entities.Transaction;
+using TrialApp.Services;
+using TrialApp.Views;
+using Xamarin.Forms;
+using System.Linq;
+
+namespace TrialApp.ViewModels
+{
+    class ObservationPageViewModel : BaseViewModel
+    {
+        #region private variables
+        private string _crop;
+        private string _id;
+        private Color _headerColor;
+        private string _nextVarietyName;
+        private Color _buttonColor;
+        private List<FieldSetPair> _traitSetList;
+        private ObservationAppService _observationService;
+        private FieldSetService _FieldSetService;
+        private List<VarietyData> _varList;
+        private bool _trialUpdated = false;
+        private TrialService _trialService;
+        private int _trialEzid;
+        private bool _changedVisible;
+        private Color _headerTextColor;
+        #endregion
+
+        #region public properties
+
+        public Color HeaderTextColor
+        {
+            get { return _headerTextColor; }
+            set
+            {
+                _headerTextColor = value;
+                OnPropertyChanged();
+            }
+        }
+
+        public bool ChangedVisible
+        {
+            get { return _changedVisible; }
+            set
+            {
+                _changedVisible = value;
+                OnPropertyChanged();
+            }
+        }
+
+        public ICommand FieldsetChangeCommand { get; set; }
+
+        public string VarietyName { get; set; }
+
+        public string FieldNumber { get; set; }
+
+        public string Variety { get; set; }
+
+        public Color HeaderColor
+        {
+            get { return _headerColor; }
+            set
+            {
+                _headerColor = value;
+                OnPropertyChanged();
+            }
+        }
+
+        public Color ButtonColor
+        {
+            get { return _buttonColor; }
+            set
+            {
+                _buttonColor = value;
+                OnPropertyChanged();
+            }
+        }
+
+        public string NextVarietyName
+        {
+            get { return _nextVarietyName; }
+            set
+            {
+                _nextVarietyName = value;
+                OnPropertyChanged();
+            }
+        }
+
+        public List<FieldSetPair> TraitSetList
+        {
+            get { return _traitSetList; }
+            set
+            {
+                _traitSetList = value;
+                OnPropertyChanged();
+            }
+        }
+
+        #endregion
+
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="name"></param>
+        /// <param name="id"></param>
+        /// <param name="crop"></param>
+        /// <param name="varList"></param>
+        public ObservationPageViewModel(string id, string crop, List<VarietyData> varList, int trialEzid)
+        {
+            _crop = crop;
+            _id = id;
+            _varList = varList;
+            _trialEzid = trialEzid;
+            _FieldSetService = new FieldSetService();
+            _trialService = new TrialService();
+            _observationService = new ObservationAppService();
+
+            LoadObservation();
+            FieldsetChangeCommand = new FieldsetChangeOperation();
+        }
+
+        /// <summary>
+        /// Initialize Observation page and all static contents
+        /// </summary>
+        private void LoadObservation()
+        {
+            TraitSetList = new List<FieldSetPair>();
+
+            var currentItem = _varList.Find(x => x.VarietyId == _id);
+            var currentIndex = _varList.IndexOf(currentItem);
+
+            VarietyName = currentItem.Name;
+            FieldNumber = currentItem.Name;
+            Variety = currentItem.Name;
+            CurrentTime = DateTime.Now.ToString("HH:mm");
+
+            var status = _trialService.GetTrialInfo(_trialEzid);
+            if (status.StatusCode == 30)
+                UpdatedUi();
+            else
+                NormalUi();
+
+            if (_varList.ElementAtOrDefault(currentIndex + 1) != null)
+                NextVarietyName = "NEXT: " + _varList[currentIndex + 1].Name;
+            else
+                NextVarietyName = "NEXT";
+
+            var fieldSets = _FieldSetService.GetFieldSetList(_crop);
+
+            foreach (var val in fieldSets)
+            {
+                var fieldset = new FieldSetPair()
+                {
+                    Id = Convert.ToInt32(val.FieldSetID),
+                    Name = val.FieldSetCode + " - " + val.FieldSetName
+                };
+                TraitSetList.Add(fieldset);
+            }
+        }
+
+        public void LoadTraits(int _fieldsetId, StackLayout stackPanelTraits)
+        {
+            // get traitlist from repository
+            TraitService traitService = new TraitService();
+            var traitList = traitService.GetTraitList(_fieldsetId);
+
+            //variables to create validation
+            var dispformat = new string[traitList.Count];
+            var minvalue = new string[traitList.Count];
+            var maxvalue = new string[traitList.Count];
+            var traitLabelList = new string[traitList.Count];
+            var arrayindex = 0;
+
+            #region Foreach traits
+            // draw controls on stacklayout
+            foreach (var val in traitList)
+            {
+                //fetch Observation data from repository
+                var observationData = GetObsValue(val.TraitID);
+                var obsValue = "";
+                bool updatable = val.Updatable;
+
+                if (observationData != null)
+                    obsValue = GetObservationValue(observationData, val.DataType.ToLower());
+
+                var label = new Label
+                {
+                    Text = val.ColumnLabel,
+                    FontSize = Device.GetNamedSize(NamedSize.Small, typeof(Label)),
+                    Margin = new Thickness(0, 15, 0, 5)
+                };
+                #region ListOfValues
+                if (val.ListOfValues)
+                {
+                    var layout = new StackLayout() { Orientation = StackOrientation.Vertical };
+                    var traiValueService = new TraitValueService();
+                    var picker = new BindablePicker
+                    {
+                        HorizontalOptions = LayoutOptions.FillAndExpand,
+                        Margin = new Thickness(0, 0, 0, 0),
+                        BackgroundColor = Color.Transparent,
+                        IsEnabled = updatable,
+                        DisplayMemberPath = "TraitValueName",
+                        SelectedValuePath = "TraitValueCode",
+                        ItemsSource = traiValueService.GetTraitValueWithID(val.TraitID),
+                        SelectedValue = obsValue,
+                        StyleId = val.TraitID.ToString() + "|" + val.DataType
+                    };
+                    picker.SelectedIndexChanged += Picker_SelectedIndexChanged;
+                    var frame = new Frame()
+                    {
+                        Content = picker,
+                        OutlineColor = Color.Black,
+                        Padding = new Thickness(5),
+                    };
+
+                    layout.Children.Add(label);
+                    layout.Children.Add(frame);
+
+                    stackPanelTraits.Children.Add(layout);
+                }
+                #endregion
+                else
+                {
+                    #region empty format but character
+                    if (string.IsNullOrEmpty(val.DisplayFormat))
+                    {
+                        var layout = new StackLayout() { Orientation = StackOrientation.Vertical };
+                        var entry = new Entry
+                        {
+                            HorizontalOptions = LayoutOptions.FillAndExpand,
+                            Margin = new Thickness(0, 0, 0, 0),
+                            BackgroundColor = Color.Transparent,
+                            IsEnabled = updatable,
+                            Text = obsValue,
+                            StyleId = val.TraitID.ToString() + "|" + val.DataType
+                        };
+                        entry.Unfocused += Entry_Unfocused;
+                        var frame = new Frame()
+                        {
+                            Content = entry,
+                            OutlineColor = Color.Black,
+                            Padding = new Thickness(5),
+
+
+                        };
+
+                        layout.Children.Add(label);
+                        layout.Children.Add(frame);
+
+                        stackPanelTraits.Children.Add(layout);
+
+                    }
+                    #endregion
+                    #region DateType
+                    else if (val.DisplayFormat.StartsWith("9") && val.DisplayFormat.Contains("/"))
+                    {
+                        var layout = new StackLayout() { Orientation = StackOrientation.Vertical };
+                        var dateData = new DatePicker
+                        {
+                            VerticalOptions = LayoutOptions.CenterAndExpand,
+                            IsEnabled = updatable,
+                            StyleId = val.TraitID.ToString() + "|" + val.DataType
+                        };
+                        dateData.DateSelected += DateData_DateSelected;
+                        if (!string.IsNullOrEmpty(obsValue))
+                            dateData.Date = Convert.ToDateTime(obsValue);
+
+                        var frame = new Frame
+                        {
+                            Content = dateData,
+                            OutlineColor = Color.Black,
+                            Padding = new Thickness(5)
+                        };
+
+                        dispformat[arrayindex] = val.DisplayFormat;
+                        maxvalue[arrayindex] = val.MaxValue.ToString();
+                        minvalue[arrayindex] = val.MinValue.ToString();
+                        traitLabelList[arrayindex] = val.TraitID.ToString();
+                        arrayindex++;
+
+                        layout.Children.Add(label);
+                        layout.Children.Add(frame);
+
+                        stackPanelTraits.Children.Add(layout);
+                    }
+                    #endregion
+                    #region integer/decimal 
+                    else if (val.DisplayFormat.StartsWith("9") || val.DisplayFormat.StartsWith("-9") ||
+                        val.DisplayFormat.StartsWith(">") || val.DisplayFormat.StartsWith("->"))
+                    {
+                        var layout = new StackLayout() { Orientation = StackOrientation.Vertical };
+                        var entry = new Entry()
+                        {
+                            HorizontalOptions = LayoutOptions.FillAndExpand,
+                            Margin = new Thickness(0, 0, 0, 0),
+                            BackgroundColor = Color.Transparent,
+                            Keyboard = Keyboard.Numeric,
+                            Text = obsValue,
+                            IsEnabled = updatable,
+                            StyleId = val.TraitID.ToString() + "|" + val.DataType
+
+                        };
+                        entry.Unfocused += Entry_Unfocused;
+                        var frame = new Frame()
+                        {
+                            Content = entry,
+                            OutlineColor = Color.Black,
+                            Padding = new Thickness(5)
+
+                        };
+                        dispformat[arrayindex] = val.DisplayFormat;
+                        maxvalue[arrayindex] = val.MaxValue.ToString();
+                        minvalue[arrayindex] = val.MinValue.ToString();
+                        traitLabelList[arrayindex] = val.TraitID.ToString();
+                        arrayindex++;
+
+                        layout.Children.Add(label);
+                        layout.Children.Add(frame);
+
+                        stackPanelTraits.Children.Add(layout);
+                    }
+                    #endregion
+                    #region Character
+                    else
+                    {
+                        var layout = new StackLayout() { Orientation = StackOrientation.Vertical };
+                        var entry = new Entry
+                        {
+                            HorizontalOptions = LayoutOptions.FillAndExpand,
+                            Margin = new Thickness(0, 0, 0, 0),
+                            BackgroundColor = Color.Transparent,
+                            IsEnabled = updatable,
+                            Text = obsValue,
+                            StyleId = val.TraitID.ToString() + "|" + val.DataType
+
+                        };
+                        entry.Unfocused += Entry_Unfocused;
+                        var frame = new Frame()
+                        {
+                            Content = entry,
+                            OutlineColor = Color.Black,
+                            Padding = new Thickness(5),
+
+
+                        };
+                        dispformat[arrayindex] = val.DisplayFormat;
+                        maxvalue[arrayindex] = val.MaxValue.ToString();
+                        minvalue[arrayindex] = val.MinValue.ToString();
+                        traitLabelList[arrayindex] = val.TraitID.ToString();
+                        arrayindex++;
+                        layout.Children.Add(label);
+                        layout.Children.Add(frame);
+
+                        stackPanelTraits.Children.Add(layout);
+                    }
+                    #endregion
+                }
+            }
+            #endregion
+            TraitFieldValidation validation = new TraitFieldValidation();
+            validation.AddValidation(traitLabelList, dispformat, minvalue, maxvalue);
+        }
+
+        /// <summary>
+        /// Change the UI after value is updated in db
+        /// </summary>
+        private void UpdatedUi()
+        {
+            ChangedVisible = true;
+            BackColor = Color.Green;
+            ButtonColor = Color.Green;
+            HeaderColor = Color.Green;
+            HeaderTextColor = Color.White;
+        }
+
+        /// <summary>
+        /// Normal non modified UI page
+        /// </summary>
+        private void NormalUi()
+        {
+            HeaderColor = Color.FromHex("#ebebeb");
+            ButtonColor = Color.FromHex("#4a90e2");
+            BackColor = Color.FromHex("#ebebeb"); ;
+            ChangedVisible = false;
+            HeaderTextColor = Color.Black;
+        }
+
+        private async void Entry_Unfocused(object sender, FocusEventArgs e)
+        {
+            //_trialUpdated
+            var entry = sender as Entry;
+            var validate = new TraitFieldValidation();
+            var traitId = Convert.ToInt32(entry.StyleId.Split('|')[0]);
+            var dataType = entry.StyleId.Split('|')[1];
+            var validateResult = validate.validatecol(traitId.ToString(), entry.Text);
+            if (string.IsNullOrEmpty(validateResult))
+            {
+                var observation = new ObservationApp
+                {
+                    EZID = _id,
+                    TraitID = traitId,
+                    DateCreated = DateTime.UtcNow.Date.ToString("yyyy-MM-dd"),
+                    DateUpdated = DateTime.UtcNow.Date.ToString("yyyy-MM-dd"),
+                    UserIDCreated = "user",
+                    UserIDUpdated = "user",
+                    Modified = true
+                };
+                observation = ObservationWithCorrVal(observation, dataType.ToLower(), entry.Text);
+                _observationService.UpdateOrSaveObservationData(observation);
+                if (!_trialUpdated)
+                {
+                    _trialService.UpdateTrialStatus(_trialEzid);
+                    _trialUpdated = true;
+                }
+
+                UpdatedUi();
+            }
+            else
+            {
+                //display not validated indicator on the control
+            }
+        }
+
+        private void Picker_SelectedIndexChanged(object sender, EventArgs e)
+        {
+            var picker = sender as BindablePicker;
+            var validate = new TraitFieldValidation();
+            var traitId = Convert.ToInt32(picker.StyleId.Split('|')[0]);
+            var validateResult = validate.validatecol(traitId.ToString(), picker.SelectedValue.ToString());
+            if (string.IsNullOrEmpty(validateResult))
+            {
+                var observation = new ObservationApp
+                {
+                    EZID = _id,
+                    TraitID = traitId,
+                    DateCreated = DateTime.UtcNow.Date.ToString("yyyy-MM-dd"),
+                    DateUpdated = DateTime.UtcNow.Date.ToString("yyyy-MM-dd"),
+                    UserIDCreated = "user",
+                    UserIDUpdated = "user",
+                    ObsValueChar = picker.SelectedValue.ToString(),
+                    Modified = true
+                };
+                _observationService.UpdateOrSaveObservationData(observation);
+                if (!_trialUpdated)
+                {
+                    _trialService.UpdateTrialStatus(_trialEzid);
+                    _trialUpdated = true;
+                }
+
+                UpdatedUi();
+            }
+            else
+            {
+                //display not validated indicator on the control
+            }
+
+        }
+
+        private void DateData_DateSelected(object sender, DateChangedEventArgs e)
+        {
+            var datePicker = sender as DatePicker;
+            var validate = new TraitFieldValidation();
+            var traitId = Convert.ToInt32(datePicker.StyleId.Split('|')[0]);
+            var validateResult = validate.validatecol(traitId.ToString(), datePicker.Date.ToString());
+            if (string.IsNullOrEmpty(validateResult))
+            {
+                var observation = new ObservationApp
+                {
+                    EZID = _id,
+                    TraitID = traitId,
+                    DateCreated = DateTime.UtcNow.Date.ToString("yyyy-MM-dd"),
+                    DateUpdated = DateTime.UtcNow.Date.ToString("yyyy-MM-dd"),
+                    UserIDCreated = "user",
+                    UserIDUpdated = "user",
+                    ObsValueDate = datePicker.Date,
+                    Modified = true
+                };
+                _observationService.UpdateOrSaveObservationData(observation);
+                if (!_trialUpdated)
+                {
+                    _trialService.UpdateTrialStatus(_trialEzid);
+                    _trialUpdated = true;
+                }
+
+                UpdatedUi();
+
+            }
+            else
+            {
+                //display not validated indicator on the control
+            }
+        }
+
+        /// <summary>
+        /// returns correct observation value according to the datatype
+        /// </summary>
+        /// <param name="observationData"></param>
+        /// <param name="dataType"></param>
+        /// <returns></returns>
+
+        private ObservationApp ObservationWithCorrVal(ObservationApp observation, string dataType, string value)
+        {
+            switch (dataType)
+            {
+                case "c":
+                    observation.ObsValueChar = value;
+                    return observation;
+                case "i":
+                    observation.ObsValueInt = Convert.ToInt32(value);
+                    return observation;
+                case "d":
+                    observation.ObsValueDate = Convert.ToDateTime(value);
+                    return observation;
+                case "a":
+                    observation.ObsValueDec = Convert.ToDecimal(value);
+                    return observation;
+                default:
+                    return observation;
+
+            }
+        }
+
+        private string GetObservationValue(ObservationApp observationData, string dataType)
+        {
+            switch (dataType)
+            {
+                case "c":
+                    return observationData.ObsValueChar ?? "";
+                case "i":
+                    return observationData.ObsValueInt.ToString() ?? "";
+                case "d":
+                    return observationData.ObsValueDate.ToString();
+                case "a":
+                    return observationData.ObsValueDec.ToString();
+                default:
+                    return "";
+
+            }
+
+        }
+
+
+        private ObservationApp GetObsValue(int traitId)
+        {
+            var obsData = _observationService.GetObservationData(_id, traitId);
+            return obsData;
+        }
+
+    }
+
+    internal class FieldsetChangeOperation : ICommand
+    {
+        public bool CanExecute(object parameter)
+        {
+            return true;
+        }
+
+        public void Execute(object parameter)
+        {
+
+        }
+
+        public event EventHandler CanExecuteChanged;
+    }
+
+    internal class FieldSetPair
+    {
+        public int Id { get; set; }
+        public string Name { get; set; }
+    }
+}

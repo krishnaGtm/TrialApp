@@ -1,0 +1,44 @@
+﻿using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+using TrialApp.Entities.Transaction;
+using Xamarin.Forms;
+
+namespace TrialApp.Views
+{
+    public partial class FilterPage
+    {
+        public FilterPage(List<Entities.Transaction.Trial> allTrials)
+        {
+            InitializeComponent();
+            ViewModel.Navigation = this.Navigation;
+            ViewModel.TrialList = allTrials;
+            ViewModel.LoadControls();
+        }
+
+        protected override void OnAppearing()
+        {
+            base.OnAppearing();
+            ViewModel.StartTimer();
+        }
+
+        protected override void OnDisappearing()
+        {
+            base.OnDisappearing();
+            ViewModel.Timer.Stop();
+        }
+
+        private void FilterSwitch_OnToggled(object sender, ToggledEventArgs e)
+        {
+            var value = sender as Switch;
+            if (value != null) ViewModel.DisableFilter = value.IsToggled;
+        }
+
+        private void Picker_OnSelectedIndexChanged(object sender, EventArgs e)
+        {
+            
+        }
+    }
+}

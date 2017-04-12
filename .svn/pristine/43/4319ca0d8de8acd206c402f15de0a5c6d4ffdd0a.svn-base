@@ -1,0 +1,115 @@
+﻿using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+using System.Windows.Input;
+using TrialApp.Services;
+using TrialApp.Views;
+using Xamarin.Forms;
+
+namespace TrialApp.ViewModels
+{
+    public class FilterPageViewModel : BaseViewModel
+    {
+
+        #region private variables
+
+        private readonly CdmFilterService _cdmFilterService;
+        private readonly CropRdService _cropRdService;
+        private readonly CountryService _countryService;
+
+        #endregion
+
+        #region public properties
+        private List<FilterSet> _filterSetList;
+
+        public List<FilterSet> FilterSetList
+        {
+            get { return _filterSetList; }
+            set { _filterSetList = value; OnPropertyChanged(); }
+        }
+
+        #endregion
+
+        public FilterPageViewModel()
+        {
+            _cdmFilterService = new CdmFilterService();
+            _cropRdService = new CropRdService();
+            _countryService = new CountryService();
+            FilterSetList = new List<FilterSet>();
+        }
+
+        public async void LoadControls()
+        {
+            var filterData = await _cdmFilterService.GetFilterListAsync();
+            var filterlist = new List<FilterSet>();
+
+            foreach (var val in filterData)
+            {
+                var label = val.FieldLabel;
+                var codeValuelist = new List<CodeValuePair>();
+
+                switch (val.TableName.ToLower())
+                {
+                    case "country":
+                        {
+                            var dataList = await _countryService.GetCountryListAsync();
+
+                            foreach (var v in dataList)
+                            {
+                                var data = new CodeValuePair()
+                                {
+                                    Code = v.CountryCode,
+                                    Value = v.CountryName
+                                };
+                                codeValuelist.Add(data);
+                            }
+
+                            break;
+                        }
+                    case "croprd":
+                        {
+                            var dataList = await _cropRdService.GetCropListAsync();
+
+                            foreach (var v in dataList)
+                            {
+                                var data = new CodeValuePair()
+                                {
+                                    Code = v.CropCode,
+                                    Value = v.CropName
+                                };
+                                codeValuelist.Add(data);
+                            }
+
+                            break;
+                        }
+                    default:
+                        break;
+
+                }
+                var valueSet = new FilterSet()
+                {
+                    FilterLabel = label,FilterValue = codeValuelist
+                };
+
+                filterlist.Add(valueSet);
+
+            }
+
+            FilterSetList = filterlist;
+        }
+    }
+
+    public class FilterSet
+    {
+        public string FilterLabel { get; set; }
+        public List<CodeValuePair> FilterValue { get; set; }
+    }
+
+    public class CodeValuePair
+    {
+        public string Code { get; set; }
+        public string Value { get; set; }
+    }
+}

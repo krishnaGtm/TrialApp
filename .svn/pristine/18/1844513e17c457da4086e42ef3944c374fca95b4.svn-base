@@ -1,0 +1,42 @@
+﻿<?xml version="1.0" encoding="utf-8" ?>
+<pages:ViewPage xmlns="http://xamarin.com/schemas/2014/forms"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="TrialApp.Views.AddVarietyPage"
+             xmlns:viewModel="clr-namespace:TrialApp.ViewModels;assembly=TrialApp"
+             xmlns:pages="clr-namespace:TrialApp.Views.Abstract;assembly=TrialApp"
+             xmlns:viewModels="clr-namespace:TrialApp.ViewModels"
+              x:TypeArguments="viewModels:AddVarietyPageViewModel"  
+                >
+    <ContentPage.BindingContext>
+        <viewModel:AddVarietyPageViewModel/>
+    </ContentPage.BindingContext>
+    <ContentView BackgroundColor="White">
+       
+        <StackLayout Margin="10,5" VerticalOptions="Fill" HorizontalOptions="Fill">
+            <Label Text="{Binding TrialName}" VerticalOptions="Center"  HorizontalOptions="Start" FontSize="20"/>
+            <Label Text="Add variety"  VerticalOptions="Center" HorizontalOptions="Start" FontSize="50" Margin="0,0,0,20" />
+            <!--<Frame HorizontalOptions="Fill" OutlineColor="Black" Margin="0,10,0,10" HeightRequest="40">-->
+            <Frame Padding="5" OutlineColor="Black">
+                <Entry Placeholder="Variety name" Text="{Binding VarietyName,Mode=TwoWay}" HeightRequest="40" Keyboard="Text"></Entry>
+            </Frame>
+            <!--<Frame HorizontalOptions="Fill" OutlineColor="Black" Margin="0,10,0,10" HeightRequest="40">-->
+            <Frame Padding="5" OutlineColor="Black">
+                <Entry Placeholder="Consecutive number" Text="{Binding ConsecutiveNumber, Mode=TwoWay}" HeightRequest="40" Keyboard="Numeric"></Entry>
+            </Frame>
+            <Label Text="{Binding ConfirmationMessage}" TextColor="{Binding ConfirmationColor}" FontSize="Default"/>
+            <Button x:Name="btnAddVarietyToTrial" VerticalOptions="Fill" Text="ADD TO TRIAL" BorderColor="#2B7DF4"
+            IsEnabled="{Binding ButtonEnabled,Mode=TwoWay}" Command="{Binding AddNewVarietyCommand}" CommandParameter="{Binding}"
+            BackgroundColor="#2B7DF4"/>
+        </StackLayout>
+        <!--<StackLayout Orientation="Vertical" HorizontalOptions="FillAndExpand">
+            <Label Text="{Binding VarietyName}" VerticalOptions="End" HorizontalOptions="StartAndExpand" FontSize="18"/>
+            <Label Text="Add variety" HorizontalOptions="EndAndExpand" FontSize="22"></Label>
+            <Frame HorizontalOptions="FillAndExpand" OutlineColor="Black" HeightRequest="40">
+                <Entry HeightRequest="40" HorizontalOptions="FillAndExpand"></Entry>
+            </Frame>
+            <Frame HorizontalOptions="FillAndExpand" OutlineColor="Black" HeightRequest="40">
+                <Entry HeightRequest="40" HorizontalOptions="FillAndExpand"></Entry>
+            </Frame>
+        </StackLayout>-->
+    </ContentView>
+</pages:ViewPage>

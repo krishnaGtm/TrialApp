@@ -1,0 +1,423 @@
+﻿using SQLite;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
+using TrialApp.Common;
+using TrialApp.Entities;
+using TrialApp.Entities.Master;
+using TrialApp.Entities.ServiceResponse;
+using TrialApp.ServiceClient;
+
+namespace TrialApp.Services
+{
+    public class MasterDataModule
+    {
+        private static Dictionary<string, string> dictTableSequence = new Dictionary<string, string>();
+        private static int recordsFrmWS;
+        private SequenceTableService sequenceTableService;
+        private FieldSetService fieldSetService;
+        private SoapClient soapClient;
+
+        public int maxVal;
+        public MasterDataModule()
+        {
+            sequenceTableService = new SequenceTableService();
+            fieldSetService = new FieldSetService();
+            soapClient = WebserviceTasks.GetSoapClient();
+        }
+        public async Task<bool> getMetaInfo()
+        {
+            var masterTableMetaInfoReqObj = new getMetaInfoForMasterDataTables()
+            {
+                TablesInfo = new TablesInfo1
+                {
+                    tables =
+                        new List<TablesName>
+                        {
+                                new TablesName {table = "Country"},
+                                new TablesName {table = "CropGroup"},
+                                new TablesName {table = "CropRD"},
+                                new TablesName {table = "EntityType"},
+                                new TablesName {table = "FieldSet"},
+                                new TablesName {table = "PropertyOfEntity"},
+                                new TablesName {table = "Trait"},
+                                new TablesName {table = "TraitInFieldSet"},
+                                new TablesName {table = "TraitType"},
+                                new TablesName {table = "TrialRegion"},
+                                new TablesName {table = "TrialType"},
+                                new TablesName {table = "TraitValue"},
+                                new TablesName {table = "CropSegment"}
+                        }
+                }
+            };
+
+            try
+            {
+                var resp = await
+                    soapClient.GetResponse<getMetaInfoForMasterDataTables, getMetaInfoForMasterDataTablesResponse>(
+                        masterTableMetaInfoReqObj);
+                var data = resp.Tables.Table;
+                dictTableSequence.Clear();
+                foreach (var _val in data)
+                {
+                    dictTableSequence.Add(_val.Name.Trim(), _val.MTSeqMax);
+                }
+                return true;
+            }
+            catch (Exception ex)
+            {
+                return false;
+            }
+        }
+
+
+
+
+
+        public async Task<bool> InitializeInput()
+        {
+            var maxNrOfRq = 2000;
+            var req = new GetMasterData_V3
+            {
+                AppName = "TrailApp",
+                DatabaseVersion = WebserviceTasks.dbVersion, //WebserviceTasks.dbVersion,
+                DeviceID = WebserviceTasks.deviceId,//WebserviceTasks.deviceId,
+                SoftwareVersion = WebserviceTasks.appVersion,//WebserviceTasks.appVersion,
+                UserID = WebserviceTasks.usernameWS,//WebserviceTasks.usernameWS,
+                NrOfRecords = "2000",
+                onlyActiveRecords = "0",
+                orderBy = "MTSeq",
+                isAscending = "1"
+            };
+
+            foreach (var tableName in dictTableSequence)
+            {
+                if (
+                    !await
+                        DownloadInsertMasterData(soapClient, tableName, req, maxNrOfRq))
+                {
+                    return false;
+                }
+            }
+            return true;
+        }
+
+        private async Task<bool> DownloadInsertMasterData(SoapClient client,
+            KeyValuePair<string, string> tableName, GetMasterData_V3 req,
+            int maxNrOfRq)
+        {
+            using (var db = new SQLiteConnection(DbPath.GetMasterDbPath()))
+            {
+                maxVal = await sequenceTableService.GetMaxSequence(tableName.Key, db);
+
+                if (maxVal >= Convert.ToInt32(tableName.Value)) return true;
+                req.MTSeq = maxVal.ToString();
+                req.TableName = tableName.Key; //tableName;
+                var exception = new Exception();
+                var ExceptionOccured = false;
+
+                try
+                {
+                    ExceptionOccured = false;
+                    var result = await client.GetResponse<GetMasterData_V3, GetMasterData_V3Response>(req);
+                    recordsFrmWS = result.GetMasterDataOutput.Tuple.Count();
+                    if (db.IsInTransaction)
+                        db.Rollback();
+                    db.BeginTransaction();
+                    ParseMasterData(result.GetMasterDataOutput.Tuple, db, tableName.Key);
+                    await sequenceTableService.setMaxVal(tableName.Key, maxVal, db);
+                    db.Commit();
+                    while (recordsFrmWS == maxNrOfRq)
+                    {
+                        ExceptionOccured = false;
+                        //maxVal = await sequenceTableService.GetMaxSequence(tableName.Key, db);
+                        req.MTSeq = maxVal.ToString();
+                        var Nextresult = await client.GetResponse<GetMasterData_V3, GetMasterData_V3Response>(req);
+                        recordsFrmWS = Nextresult.GetMasterDataOutput.Tuple.Count();
+                        if (!(Nextresult.GetMasterDataOutput.Tuple.Count == 1 && Nextresult.GetMasterDataOutput.Tuple[0].Old == null))
+                        {
+                            if (db.IsInTransaction)
+                                db.Rollback();
+                            db.BeginTransaction();
+                            ParseMasterData(Nextresult.GetMasterDataOutput.Tuple, db, tableName.Key);
+                            await sequenceTableService.setMaxVal(tableName.Key, maxVal, db);
+                            db.Commit();
+                        }
+                        else
+                            break;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    ExceptionOccured = true;
+                }
+                return true;
+            }
+
+
+        }
+        /// <summary>
+        /// prepares the list of corresponding table data and inset in the db
+        /// </summary>
+        /// <param name="tuple : zero or more parent node "></param>
+        /// <param name="sqlite connection"></param>
+        /// <param name="tableName"></param>
+        private void ParseMasterData(List<Entities.ServiceResponse.Tuple> tuple, SQLiteConnection db, string tableName)
+        {
+            switch (tableName)
+            {
+                case "FieldSet":
+                    var fieldSetList = tuple.Select(t => new FieldSet()
+                    {
+                        FieldSetID = t.Old.FieldSet.FieldSetID,
+                        FieldSetCode = t.Old.FieldSet.FieldSetCode,
+                        FieldSetName = t.Old.FieldSet.FieldSetName,
+                        CropGroupID = t.Old.FieldSet.CropGroupID,
+                        CropCode = t.Old.FieldSet.CropCode,
+                        CropGroupLevel = t.Old.FieldSet.CropGroupLevel,
+                        CropLevel = t.Old.FieldSet.CropLevel,
+                        Property = t.Old.FieldSet.Property,
+                        NormalTrait = t.Old.FieldSet.NormalTrait,
+                        MTSeq = t.Old.FieldSet.MTSeq,
+                        MTStat = t.Old.FieldSet.MTStat
+                    }).ToList();
+
+                    var fieldSetINS = fieldSetList.Where(o => o.MTStat == "INS" || o.MTStat == "UPD");
+                    var fieldSetDEL = fieldSetList.Where(o => o.MTStat == "DEL" || o.MTStat == "UPD");
+                    foreach (var crd in fieldSetDEL)
+                    {
+                        db.Query<FieldSet>("delete from FieldSet where FieldSetID = ?", crd.FieldSetID);
+                    }
+                    db.InsertAll(fieldSetINS);
+                    maxVal = fieldSetList.Max(o => o.MTSeq);
+                    break;
+                case "Country":
+                    var countryINS = tuple.Select(t => t.Old.Country).Where(o => o.MTStat == "INS" || o.MTStat == "UPD").Select(c => new Country
+                    {
+                        CountryCode = c.CountryCode,
+                        CountryName = c.CountryName,
+                        MTSeq = c.MTSeq
+                    });
+                    var countryDEL = tuple.Select(t => t.Old.Country).Where(o => o.MTStat == "DEL" || o.MTStat == "UPD");
+                    foreach (var crd in countryDEL)
+                    {
+                        db.Query<Country>("delete from Country where CountryCode = ?", crd.CountryCode);
+                    }
+                    db.InsertAll(countryINS);
+                    maxVal = tuple.Select(t => t.Old.Country).Max(o => Convert.ToInt32(o.MTSeq));
+                    break;
+                case "CropGroup":
+                    var cropGroupINS = tuple.Select(t => t.Old.CropGroup).Where(o => o.MTStat == "INS" || o.MTStat == "UPD").Select(c => new CropGroup()
+                    {
+                        CropGroupID = c.CropGroupID,
+                        CropGroupName = c.CropGroupName,
+                        MTSeq = c.MTSeq
+
+                    });
+                    var cropGroupDEL = tuple.Select(t => t.Old.CropGroup).Where(o => o.MTStat == "DEL" || o.MTStat == "UPD");
+
+                    foreach (var crd in cropGroupDEL)
+                    {
+                        db.Query<CropGroup>(
+                            "delete from CropGroup where CropGroupID = ? ", crd.CropGroupID);
+                    }
+                    db.InsertAll(cropGroupINS);
+                    maxVal = tuple.Select(t => t.Old.CropGroup).Max(o => Convert.ToInt32(o.MTSeq));
+                    break;
+                case "CropRD":
+                    var cropRdINS = tuple.Select(t => t.Old.CropRD).Where(o => o.MTStat == "INS" || o.MTStat == "UPD").Select(c => new CropRD
+                    {
+                        CropCode = c.CropCode,
+                        CropGroupID = c.CropGroupID,
+                        CropName = c.CropName,
+                        MTSeq = c.MTSeq
+                    });
+                    var cropRdDEL = tuple.Select(t => t.Old.CropRD).Where(o => o.MTStat == "DEL" || o.MTStat == "UPD");
+                    foreach (var crd in cropRdDEL)
+                    {
+                        db.Query<CropRD>("delete from CropRD where CropCode = ?", crd.CropCode);
+                    }
+                    db.InsertAll(cropRdINS);
+                    maxVal = tuple.Select(t => t.Old.CropRD).Max(o => Convert.ToInt32(o.MTSeq));
+                    break;
+                case "EntityType":
+                    var entityTypeINS = tuple.Select(t => t.Old.EntityType).Where(o => o.MTStat == "INS" || o.MTStat == "UPD");
+                    var entityTypeDEL = tuple.Select(t => t.Old.EntityType).Where(o => o.MTStat == "DEL" || o.MTStat == "UPD");
+                    foreach (var crd in entityTypeDEL)
+                    {
+                        db.Query<EntityType>("delete from EntityType where EntityTypeCode = ?", crd.EntityTypeCode);
+                    }
+                    db.InsertAll(entityTypeINS);
+                    maxVal = tuple.Select(t => t.Old.EntityType).Max(o => Convert.ToInt32(o.MTSeq));
+                    break;
+                case "PropertyOfEntity":
+                    var propertyOfEntityINS = tuple.Select(t => t.Old.PropertyOfEntity).Where(o => o.MTStat == "INS" || o.MTStat == "UPD");
+                    var propertyOfEntityDEL = tuple.Select(t => t.Old.PropertyOfEntity).Where(o => o.MTStat == "DEL" || o.MTStat == "UPD");
+                    foreach (var crd in propertyOfEntityDEL)
+                    {
+                        db.Query<PropertyOfEntity>(
+                            "delete from PropertyOfEntity where PropertyID = ?",
+                            crd.PropertyID);
+                    }
+                    db.InsertAll(propertyOfEntityINS);
+                    maxVal = tuple.Select(t => t.Old.PropertyOfEntity).Max(o => Convert.ToInt32(o.MTSeq));
+                    break;
+                case "Trait":
+                    var traitList = tuple.Select(t => new Trait()
+                    {
+                        TraitID = t.Old.Trait.TraitID,
+                        CropGroupID = t.Old.Trait.CropGroupID,
+                        CropCode = t.Old.Trait.CropCode,
+                        TraitTypeID = t.Old.Trait.TraitTypeID,
+                        TraitName = t.Old.Trait.TraitName,
+                        ColumnLabel = t.Old.Trait.ColumnLabel,
+                        DataType = t.Old.Trait.DataType,
+                        Updatable = t.Old.Trait.Updatable,
+                        DisplayFormat = t.Old.Trait.DisplayFormat,
+                        Editor = t.Old.Trait.Editor,
+                        ListOfValues = t.Old.Trait.ListOfValues,
+                        MinValue = t.Old.Trait.MinValue,
+                        MaxValue = t.Old.Trait.MaxValue,
+                        Property = t.Old.Trait.Property,
+                        MTSeq = t.Old.Trait.MTSeq,
+                        MTStat = t.Old.Trait.MTStat
+                    }).ToList();
+                    var traitINS = traitList.Where(o => o.MTStat == "INS" || o.MTStat == "UPD");
+                    var traitDEL = traitList.Where(o => o.MTStat == "DEL" || o.MTStat == "UPD");
+                    foreach (var crd in traitDEL)
+                    {
+                        db.Query<Trait>(
+                            "delete from Trait where TraitID = ? ",
+                            crd.TraitID);
+                    }
+
+                    db.InsertAll(traitINS);
+                    maxVal = traitList.Max(o => Convert.ToInt32(o.MTSeq));
+                    break;
+                case "TraitInFieldSet":
+                    var traitInFieldSet = tuple.Select(t => new TraitInFieldSet
+                    {
+                        FieldSetID = t.Old.TraitInFieldSet.FieldSetID,
+                        TraitID = t.Old.TraitInFieldSet.TraitID,
+                        SortingOrder = t.Old.TraitInFieldSet.SortingOrder,
+                        MTSeq = t.Old.TraitInFieldSet.MTSeq,
+                        MTStat = t.Old.TraitInFieldSet.MTStat
+                    });
+
+                    var traitInFieldSetINS = traitInFieldSet.Where(o => o.MTStat == "INS" || o.MTStat == "UPD");
+                    var traitInFieldSetDEL = traitInFieldSet.Where(o => o.MTStat == "DEL" || o.MTStat == "UPD");
+                    foreach (var crd in traitInFieldSetDEL)
+                    {
+                        db.Query<TraitInFieldSet>(
+                            "delete from TraitInFieldSet where FieldSetID = ? and TraitID = ?", crd.FieldSetID, crd.TraitID);
+                    }
+                    db.InsertAll(traitInFieldSetINS);
+                    maxVal = traitInFieldSet.Max(o => o.MTSeq);
+                    break;
+                case "TraitType":
+                    var traitTypeList = tuple.Select(t => new TraitType
+                    {
+                        TraitTypeID = t.Old.TraitType.TraitTypeID,
+                        TraitTypeName = t.Old.TraitType.TraitTypeName,
+                        CropGroupID = t.Old.TraitType.CropGroupID,
+                        MTSeq = t.Old.TraitType.MTSeq,
+                        MTStat = t.Old.TraitType.MTStat
+                    });
+                    var traitTypeINS = traitTypeList.Where(o => o.MTStat == "INS" || o.MTStat == "UPD");
+                    var traitTypeDEL = traitTypeList.Where(o => o.MTStat == "DEL" || o.MTStat == "UPD");
+                    foreach (var crd in traitTypeDEL)
+                    {
+                        db.Query<TraitType>(
+                            "delete from TraitType where TraitTypeID = ?",
+                            crd.TraitTypeID);
+                    }
+                    db.InsertAll(traitTypeINS);
+                    maxVal = traitTypeList.Max(o => o.MTSeq);
+                    break;
+                case "TrialRegion":
+                    var trialRegionINS = tuple.Select(t => t.Old.TrialRegion).Where(o => o.MTStat == "INS" || o.MTStat == "UPD");
+                    var trialRegionDEL = tuple.Select(t => t.Old.TrialRegion).Where(o => o.MTStat == "DEL" || o.MTStat == "UPD");
+                    foreach (var crd in trialRegionDEL)
+                    {
+                        db.Query<TrialRegion>(
+                            "delete from TrialRegion where TrialRegionID = ?", crd.TrialRegionID);
+                    }
+                    db.InsertAll(trialRegionINS);
+                    maxVal = tuple.Select(t => t.Old.TrialRegion).Max(o => o.MTSeq);
+                    break;
+                case "TrialType":
+                    var trialTypeINS = tuple.Select(t => t.Old.TrialType).Where(o => o.MTStat == "INS" || o.MTStat == "UPD");
+                    var trialTypeDEL = tuple.Select(t => t.Old.TrialType).Where(o => o.MTStat == "DEL" || o.MTStat == "UPD");
+
+                    foreach (var crd in trialTypeDEL)
+                    {
+                        db.Query<TrialType>(
+                            "delete from TrialType where TrialTypeID = ?",
+                            crd.TrialTypeID);
+                    }
+                    db.InsertAll(trialTypeINS);
+                    maxVal = tuple.Select(t => t.Old.TrialType).Max(o => o.MTSeq);
+                    break;
+                case "TraitValue":
+                    var traitValueList = tuple.Select(t => new TraitValue
+                    {
+                        TraitValueID = t.Old.TraitValue.TraitValueID,
+                        TraitValueCode = t.Old.TraitValue.TraitValueCode,
+                        TraitValueName = t.Old.TraitValue.TraitValueName,
+                        TraitID = t.Old.TraitValue.TraitID,
+                        SortingOrder = t.Old.TraitValue.SortingOrder,
+                        MTSeq = t.Old.TraitValue.MTSeq,
+                        MTStat = t.Old.TraitValue.MTStat
+                    });
+
+                    var traitValueINS = traitValueList.Where(o => o.MTStat == "INS" || o.MTStat == "UPD");
+                    var traitValueDEL = traitValueList.Where(o => o.MTStat == "DEL" || o.MTStat == "UPD");
+                    foreach (var crd in traitValueDEL)
+                    {
+                        db.Query<TraitValue>(
+                            "delete from TraitValue where TraitValueID = ?", crd.TraitValueID);
+                    }
+                    db.InsertAll(traitValueINS);
+                    maxVal = traitValueList.Max(o => o.MTSeq);
+                    break;
+
+                case "CropSegment":
+                    var cropSegmentList = tuple.Select(t => new CropSegment
+                    {
+                        CropSegmentCode = t.Old.CropSegment.CropSegmentCode,
+                        CropSegmentName = t.Old.CropSegment.CropSegmentName,
+                        CropCode = t.Old.CropSegment.CropCode,
+                        MTSeq = t.Old.CropSegment.MTSeq,
+                        MTStat = t.Old.CropSegment.MTStat
+                    });
+
+                    //foreach (var v in tuple)
+                    //{
+                    //    var data = new CropSegment()
+                    //    {
+                    //        CropSegmentCode = v.Old.CropSegment.CropSegmentCode,
+                    //        CropSegmentName = v.Old.CropSegment.CropSegmentName,
+                    //        CropCode = v.Old.CropSegment.CropCode
+                    //    };
+                        
+                    //}
+
+                    var cropSegmentINS = cropSegmentList.Where(o => o.MTStat == "INS" || o.MTStat == "UPD");
+                    var cropSegmenteDEL = cropSegmentList.Where(o => o.MTStat == "DEL" || o.MTStat == "UPD");
+                    foreach (var crd in cropSegmenteDEL)
+                    {
+                        db.Query<CropSegment>(
+                            "delete from CropSegment where CropSegmentCode = ?", crd.CropSegmentCode);
+                    }
+                    db.InsertAll(cropSegmentINS);
+                    maxVal = cropSegmentList.Max(o => o.MTSeq);
+                    break;
+                default:
+                    break;
+            }
+
+        }
+    }
+}
+

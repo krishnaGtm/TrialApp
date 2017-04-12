@@ -1,0 +1,20 @@
+﻿using Ninject;
+
+namespace TrialApp.Core
+{
+    public class ControllerFactory<T>
+    {
+        private StandardKernel kernel;
+
+        public ControllerFactory(IRepository<T> repository)
+        {
+            kernel = new StandardKernel();
+            kernel.Bind<IRepository<T>>().ToConstant(repository);
+        }
+
+        public T GetNewInstance()
+        {
+            return kernel.Get<T>();
+        }
+    }
+}

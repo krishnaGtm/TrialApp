@@ -1,0 +1,79 @@
+﻿using System;
+using System.Text;
+using System.Collections.Generic;
+using Microsoft.VisualStudio.TestTools.UnitTesting;
+using TrialApp.ViewModels;
+using TrialApp.ViewModels.Inetrfaces;
+using TrialApp.Views;
+
+namespace TrialAppLT.UnitTest
+{
+    /// <summary>
+    /// Summary description for ObservationPageTest
+    /// </summary>
+    [TestClass]
+    public class ObservationPageTest
+    {
+        readonly IDependencyService _dependencyService;
+        public ObservationPageTest()
+        {
+            _dependencyService = new DependencyServiceStub();
+        }
+
+        /// <summary>
+        ///Gets or sets the test context which provides
+        ///information about and functionality for the current test run.
+        ///</summary>
+        public TestContext TestContext { get; set; }
+
+        #region Additional test attributes
+        //
+        // You can use the following additional attributes as you write your tests:
+        //
+        // Use ClassInitialize to run code before running the first test in the class
+        // [ClassInitialize()]
+        // public static void MyClassInitialize(TestContext testContext) { }
+        //
+        // Use ClassCleanup to run code after all tests in a class have run
+        // [ClassCleanup()]
+        // public static void MyClassCleanup() { }
+        //
+        // Use TestInitialize to run code before running each test 
+        // [TestInitialize()]
+        // public void MyTestInitialize() { }
+        //
+        // Use TestCleanup to run code after each test has run
+        // [TestCleanup()]
+        // public void MyTestCleanup() { }
+        //
+        #endregion
+
+        [TestMethod]
+        public void ChangeVarietyInfoTest()
+        {
+            // Arrange
+            const string nextVarietyName = "NEXT: 004 Variety04";
+            const string previousVarietyName = "PREV: 002 Variety02";
+
+            // Act
+            var vm = new ObservationPageViewModel(_dependencyService) {VarList = new List<VarietyData>()};
+            vm.VarList.AddRange(new[]
+            {
+                new VarietyData {Crop = "LT", VarietyName = "Variety01", FieldNumber = "001", VarietyId = "990"},
+                new VarietyData {Crop = "LT", VarietyName = "Variety02", FieldNumber = "002", VarietyId = "992"},
+                new VarietyData {Crop = "LT", VarietyName = "Variety03", FieldNumber = "003", VarietyId = "993"},
+                new VarietyData {Crop = "LT", VarietyName = "Variety04", FieldNumber = "004", VarietyId = "994"},
+                new VarietyData {Crop = "LT", VarietyName = "Variety05", FieldNumber = "005", VarietyId = "995"},
+            });
+
+            vm.LoadVarietyInfo("993");
+            
+            // Assert
+            Assert.AreEqual(nextVarietyName,vm.NextVarietyName,"Invalid Next Variety name");
+            Assert.AreEqual(previousVarietyName, vm.PrevVarietyName, "Invalid Previous Variety name");
+            Console.WriteLine("Correct Next variety fetched from a list : Passed.\n"
+                + "Correct Previous variety fetched from a list: Passed.");
+        }
+
+    }
+}

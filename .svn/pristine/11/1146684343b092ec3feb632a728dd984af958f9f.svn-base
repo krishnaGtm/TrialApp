@@ -1,0 +1,60 @@
+﻿using System;
+using System.Collections.Generic;
+using System.ComponentModel;
+using System.Runtime.CompilerServices;
+using System.Threading.Tasks;
+using TrialApp.Services;
+using TrialApp.Views;
+
+namespace TrialApp.ViewModels
+{
+    class VarietyPageViewModel : INotifyPropertyChanged
+    {
+        #region private variables
+
+        private readonly TrialService _service;
+        #endregion
+
+        #region public properties
+        public event PropertyChangedEventHandler PropertyChanged;
+        public List<VarietyData> VarietyList { get; set; }
+        public string MainText { get; set; }
+
+        #endregion
+
+        private void NotifyPropertyChanged([CallerMemberName] string name = "")
+        {
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
+        }
+
+        public VarietyPageViewModel(int ezid, string trialName, Action<List<VarietyData>> predicate)
+        {
+            _service = new TrialService();
+            var res = LoadVarieties(ezid, trialName);
+            predicate(res);
+
+        }
+
+        public VarietyPageViewModel()
+        {
+        }
+
+        private List<VarietyData> LoadVarieties(int ezid, string trialName)
+        {
+            MainText = trialName;
+            VarietyList = new List<VarietyData>();
+
+            var trialList = _service.GetVarietiesList(ezid);
+            var i = 0;
+
+            foreach (var val in trialList)
+            {
+                i++;
+                var vvar = new VarietyData { VarietyId = val.EZID, Name = i.ToString() + ".  " + val.FieldNumber, Crop = val.CropCode };
+                VarietyList.Add(vvar);
+
+            }
+            return VarietyList;
+        }
+    }
+}

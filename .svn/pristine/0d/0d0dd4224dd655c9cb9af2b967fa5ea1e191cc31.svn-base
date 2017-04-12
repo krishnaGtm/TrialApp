@@ -1,0 +1,60 @@
+﻿<?xml version="1.0" encoding="utf-8" ?>
+<pages:ViewPage xmlns="http://xamarin.com/schemas/2014/forms"
+                xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+                xmlns:viewModel="clr-namespace:TrialApp.ViewModels;assembly=TrialApp"
+                xmlns:pages="clr-namespace:TrialApp.Views.Abstract;assembly=TrialApp"
+                xmlns:viewModels="clr-namespace:TrialApp.ViewModels"
+                xmlns:controls="clr-namespace:TrialApp.Controls"
+                xmlns:controls1="using:TrialApp.Controls"
+                x:Class="TrialApp.Views.FilterPage"
+                x:TypeArguments="viewModels:FilterPageViewModel" >
+
+  <ContentPage.BindingContext>
+    <viewModels:FilterPageViewModel/>
+  </ContentPage.BindingContext>
+
+  <StackLayout Orientation="Vertical" Padding="10,5">
+
+    <Label Text="{Binding CurrentTime}"  HorizontalOptions="EndAndExpand" VerticalOptions="Start" FontSize="16" TextColor="Black"/>
+    <Label Text="Filter" VerticalOptions="Center" HorizontalOptions="Start" FontSize="50"/>
+    <Switch x:Name="FilterSwitch" HorizontalOptions="FillAndExpand" Toggled="FilterSwitch_OnToggled" IsToggled="{Binding ToggleFilter}"></Switch>
+
+    <StackLayout Margin="0,10" Orientation="Vertical" Spacing="10" IsVisible="{Binding DisableFilter}">
+
+      <StackLayout BackgroundColor="#d3d3d3" Orientation="Horizontal" Spacing="10" Padding="10">
+        <Label FontSize="22" Text="Crop: " VerticalOptions="CenterAndExpand" WidthRequest="100"></Label>
+        <controls:BindablePicker x:Name="FilterCropPicker" ItemsSource="{Binding CropList}" HorizontalOptions="FillAndExpand" VerticalOptions="CenterAndExpand" DisplayMemberPath="CropName" SelectedValuePath="CropCode"
+            SelectedValue="{Binding SelectedCrop, Mode=TwoWay}" WidthRequest="280" SelectedIndexChanged="Picker_OnSelectedIndexChanged"
+                  />
+      </StackLayout>
+
+      <StackLayout BackgroundColor="#d3d3d3" Orientation="Horizontal" Spacing="10" Padding="10">
+        <Label FontSize="22" Text="Region: " VerticalOptions="CenterAndExpand" WidthRequest="100"></Label>
+        <controls:BindablePicker x:Name="FilterTrialRegionpPicker" ItemsSource="{Binding TrialRegionList}" HorizontalOptions="FillAndExpand" VerticalOptions="CenterAndExpand" DisplayMemberPath="TrialRegionName" SelectedValuePath="TrialRegionID"
+            SelectedValue="{Binding SelectedTrialRegion, Mode=TwoWay}" WidthRequest="280" SelectedIndexChanged="Picker_OnSelectedIndexChanged"
+                  />
+      </StackLayout>
+
+      <StackLayout BackgroundColor="#d3d3d3" Orientation="Horizontal" Spacing="10" Padding="10">
+        <Label FontSize="22" Text="TrialType: " VerticalOptions="CenterAndExpand" WidthRequest="100"></Label>
+        <controls:BindablePicker x:Name="FilterTrialTypePicker" ItemsSource="{Binding TrialTypeList}" HorizontalOptions="FillAndExpand" VerticalOptions="CenterAndExpand" DisplayMemberPath="TrialTypeName" SelectedValuePath="TrialTypeID"
+            SelectedValue="{Binding SelectedTrialType, Mode=TwoWay}" WidthRequest="280" SelectedIndexChanged="Picker_OnSelectedIndexChanged"
+                  />
+      </StackLayout>
+
+      <StackLayout BackgroundColor="#d3d3d3" Orientation="Horizontal" Spacing="10" Padding="10">
+        <Label FontSize="22" Text="Country: " VerticalOptions="CenterAndExpand" WidthRequest="100"></Label>
+        <controls:BindablePicker x:Name="FilterCountryPicker" ItemsSource="{Binding CountryList}" HorizontalOptions="FillAndExpand" VerticalOptions="CenterAndExpand" DisplayMemberPath="CountryName" SelectedValuePath="CountryCode"
+            SelectedValue="{Binding SelectedCountry, Mode=TwoWay}" WidthRequest="280" SelectedIndexChanged="Picker_OnSelectedIndexChanged"
+                  />
+      </StackLayout>
+
+    </StackLayout>
+
+
+    <StackLayout Spacing="20" Orientation="Horizontal" Margin="0,20" VerticalOptions="EndAndExpand">
+      <Button Text="Apply" HorizontalOptions="FillAndExpand" HeightRequest="50" Command="{Binding ApplyFilterCommand}" CommandParameter="{Binding}"/>
+      <Button Text="Cancel" HorizontalOptions="FillAndExpand" HeightRequest="50" Command="{Binding CancelFilterCommand}" CommandParameter="{Binding}"/>
+    </StackLayout>
+  </StackLayout>
+</pages:ViewPage>

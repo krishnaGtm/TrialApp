@@ -1,0 +1,417 @@
+﻿
+using SQLite;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
+using TrialApp.Common;
+using TrialApp.Common.Extensions;
+using TrialApp.DataAccess;
+using TrialApp.Entities;
+using TrialApp.Entities.Bdtos;
+using TrialApp.Entities.Bdtos.ResultSets;
+using TrialApp.Entities.ServiceRequest;
+using TrialApp.Entities.ServiceResponse;
+using TrialApp.Entities.Transaction;
+using TrialApp.ServiceClient;
+
+namespace TrialApp.Services
+{
+
+    public class TrialService
+    {
+        private TrialRepository repo;
+        private TrialRepository repo1;
+
+        public TrialService() :this(DbPath.GetTransactionDbPath())
+        {
+            repo1 = new TrialRepository();
+        }
+
+        public TrialService(string dbPath)
+        {
+            repo = new TrialRepository(new SQLiteAsyncConnection(dbPath));
+            
+        }
+        public List<Trial> GetAllTrials()
+        {
+            var orgiList =  repo1.Get();
+            return orgiList.ToList();
+        }
+
+        public List<TrialEntryApp> GetVarietiesList(int ezid)
+        {
+            var varietyList = repo.GetVarieties(ezid);
+            return varietyList;
+        }
+
+        public Trial GetTrialInfo(int trialId)
+        {
+            var orgiList = repo1.Get(trialId);
+            return orgiList;
+        }
+
+        public async Task<List<TrialDto1>> GetTrialsWrapperService()
+        {
+            var soapClient = WebserviceTasks.GetSoapClient();
+
+            var reqObj = new getTrialsWrapper
+            {
+                AppName = "TrialApp",
+                DeviceID = WebserviceTasks.deviceId,
+                SoftwareVersion = WebserviceTasks.appVersion,
+                Token = WebserviceTasks.token,
+                UserName = WebserviceTasks.usernameWS
+            };
+            var resp = await
+                soapClient.GetResponse<getTrialsWrapper, getTrialsWrapperResponse>(
+                    reqObj);
+            var localTrialsEZIDs = GetAllTrials().Select(t=>t.EZID);
+            var result = resp.TrialDto.Where(t => !localTrialsEZIDs.Contains(Convert.ToInt32(t.EZID))).ToList();
+            return result;
+        }
+
+        public async Task<List<int>> DownloadTrialEntriesData(IEnumerable<Trial> trialList)
+        {
+            var  ezidSuccess = new List<int>();
+            var soapClient = WebserviceTasks.GetSoapClient();
+
+            foreach (var item in trialList)
+            {
+                var reqObj = new GetTrialEntriesData
+                {
+                    AppName = "TrialApp",
+                    DeviceID = WebserviceTasks.deviceId,
+                    SoftwareVersion = WebserviceTasks.appVersion,
+                    Token = WebserviceTasks.token,
+                    UserName = WebserviceTasks.usernameWS,
+                    EZID = item.EZID.ToString()
+                };
+                var resp = await
+               soapClient.GetResponse<GetTrialEntriesData, GetTrialEntriesDataResponse>(
+                   reqObj);
+                if (resp.Result != "Success")
+                    break;
+                if (!SaveTrialEntriesData(resp, item))
+                    break;
+                ezidSuccess.Add(item.EZID);
+            }
+
+            return ezidSuccess;
+        }
+
+        public bool SaveTrialEntriesData(GetTrialEntriesDataResponse response, Trial trial)
+        {
+            var returnValue = false;
+
+            var tlList = new List<TrialEntryApp>();
+            var relationList = new List<Relationship>();
+            var observationList = new List<ObservationApp>();
+
+            if (response.Result != "Success") return returnValue;
+            if (response.Observations != null)
+            {
+
+                observationList.AddRange(response.Observations.ObservationDto.Select(obsData => new ObservationApp
+                {
+                    TraitID = Convert.ToInt32(obsData.TraitID),
+                    EZID = obsData.EZID.ToString(),
+                    UserIDCreated = obsData.UserIDCreated.ToLower(),
+                    UserIDUpdated = obsData.UserIDUpdated.ToLower(),
+                    DateCreated = string.IsNullOrWhiteSpace(obsData.ObservationDate) ? "" : Convert.ToDateTime(obsData.ObservationDate).ToString("yyyy-MM-dd"),
+                    DateUpdated = string.IsNullOrWhiteSpace(obsData.ObservationDate) ? "" : Convert.ToDateTime(obsData.ObservationDate).ToString("yyyy-MM-dd"),
+                    ObsValueChar = obsData.ValueChar,
+                    ObsValueDate = string.IsNullOrWhiteSpace(obsData.ValueDate) ? null : Convert.ToDateTime(obsData.ValueDate).ToString("yyyy-MM-ddTHH:mm:ss"),
+                    ObsValueDec = string.IsNullOrWhiteSpace(obsData.ValueDec) ? (decimal?)null :Convert.ToDecimal(obsData.ValueDec),
+                    ObsValueInt = string.IsNullOrWhiteSpace(obsData.ValueInt) ? (int?)null : Convert.ToInt32(obsData.ValueInt),
+                    ObservationId = string.IsNullOrWhiteSpace(obsData.ObservationID)? (int?)null : Convert.ToInt32(obsData.ObservationID) 
+                }));
+            }
+
+            if (response.TrialEntries != null)
+            {
+                foreach (var _trialdata in response.TrialEntries.TrialEntryDto)
+                {
+                    var trialEntriesApp = new TrialEntryApp
+                    {
+                        EZID = _trialdata.EZID ?? "",
+                        CropCode = _trialdata.CropCode ?? "",
+                        FieldNumber = _trialdata.FieldNumber ?? "",
+                        EZIDVariety = _trialdata.Variety.EZID ?? "",
+                        VarietyNr = _trialdata.Variety.Number == "" ? (int?)null :Convert.ToInt32(_trialdata.Variety.Number),//_trialdata.Variety.Number == null ? (int?) null : Convert.ToInt32(_trialdata.Variety.Number),
+                        CropCodeVariety = _trialdata.Variety.CropCode ?? "",
+                        VarietyName = _trialdata.Variety.Name ?? _trialdata.Name,
+                        Enumber = _trialdata.Variety.Enumber ?? "",
+                        MasterNr = _trialdata.Variety.MasterNumber ?? "",
+                        CropSegmentCode = _trialdata.Variety.CropSegmentCode ?? "",
+                        ProductSegmentCode = _trialdata.Variety.ProductSegmentCode ?? "",
+                        ProductStatus = _trialdata.Variety.ProductStatus ?? "",
+                        ResistanceHR = _trialdata.Variety.ResistanceHR ?? "",
+                        ResistanceIR = _trialdata.Variety.ResistanceIR ?? "",
+                        ResistanceT = _trialdata.Variety.ResistanceT ?? ""
+
+                    };
+                    tlList.Add(trialEntriesApp);
+
+                    if (_trialdata.Observations != null)
+                    {
+
+                        observationList.AddRange(_trialdata.Observations.ObservationDto.Select(obsData => new ObservationApp
+                        {
+                            TraitID = Convert.ToInt32(obsData.TraitID),
+                            EZID = obsData.EZID.ToString(),
+                            UserIDCreated = obsData.UserIDCreated.ToLower(),
+                            UserIDUpdated = obsData.UserIDUpdated.ToLower(),
+                            DateCreated = obsData.ObservationDate == "" ? "" : Convert.ToDateTime(obsData.ObservationDate).ToString("yyyy-MM-dd"),
+                            DateUpdated = obsData.ObservationDate == "" ? "" : Convert.ToDateTime(obsData.ObservationDate).ToString("yyyy-MM-dd"),
+                            ObsValueChar = obsData.ValueChar,
+                            ObsValueDate = string.IsNullOrWhiteSpace(obsData.ValueDate) ? "" : Convert.ToDateTime(obsData.ValueDate).ToString("yyyy-MM-ddTHH:mm:ss"), //obsData.ValueDate == "" ? (DateTime?)null : Convert.ToDateTime(Convert.ToDateTime(obsData.ValueDate).ToString("yyyy-MM-dd")),
+                            ObsValueDec = string.IsNullOrWhiteSpace(obsData.ValueDec) ? (decimal?)null : Convert.ToDecimal(obsData.ValueDec),// obsData.ValueDec == "" ? (decimal?)null : Convert.ToDecimal(obsData.ValueDec),
+                            ObsValueInt = string.IsNullOrWhiteSpace(obsData.ValueInt) ? (int?)null : Convert.ToInt32(obsData.ValueInt),
+                            ObservationId = string.IsNullOrWhiteSpace(obsData.ObservationID) ? (int?)null : Convert.ToInt32(obsData.ObservationID)
+                        }));
+                    }
+
+                    var RelTb = new Relationship
+                    {
+                        EZID1 = Convert.ToInt32(_trialdata.TrialID),
+                        EntityTypeCode1 = "TRI",
+                        EZID2 = _trialdata.EZID,
+                        EntityTypeCode2 = "TRL"
+                    };
+                    relationList.Add(RelTb);
+                }
+            }
+
+            using (var db = new SQLiteConnection(DbPath.GetTransactionDbPath()))
+            {
+
+                try
+                {
+                    db.BeginTransaction();
+
+                    //Create TrialEntry
+                    foreach (var _value in tlList)
+                    {
+                        db.InsertOrReplace(_value);
+                    }
+                    //Create Relationship
+                    foreach (var _value in relationList)
+                    {
+                        db.InsertOrReplace(_value);
+                    }
+                    //Create ObservationApp
+                    foreach (var _value in observationList)
+                    {
+                        db.InsertOrReplace(_value);
+                    }
+                    //Create Trial
+                    db.InsertOrReplace(new Trial()
+                    {
+                        EZID = trial.EZID,
+                        CropCode = trial.CropCode,
+                        TrialName = trial.TrialName,
+                        TrialTypeID = trial.TrialTypeID,
+                        CountryCode = trial.CountryCode.ToUpper(),
+                        StatusCode = trial.StatusCode
+                    });
+
+                    db.Commit();
+                    returnValue = true;
+                }
+                catch (Exception ex)
+                {
+                    // await Logger.writelog("\n exception occured " + ex.Message);
+                    db.Rollback();
+                    returnValue = false;
+                }
+            }
+
+
+            return returnValue;
+        }
+
+        public void UpdateTrialStatus(int _trialEzid)
+        {
+            repo1.UpdateTrialStatus(_trialEzid);
+        }
+
+
+        public async Task<bool> Uploaddata(List<Trial> listofCheckedTrials)
+        {
+            var result = "";
+            var lstTrialEntryApps = new List<TrialEntry>();
+
+            using (var db = new SQLiteConnection(DbPath.GetTransactionDbPath()))
+            {
+                db.BeginTransaction();
+                var client = WebserviceTasks.GetSoapClient();
+                #region Upload TrialEntries if there is any
+                foreach (var trialEntry in listofCheckedTrials.Select(trial => db.Query<TrialEntry>(
+                    "select TE.VarietyName as 'name' ,TE.FieldNumber as 'fieldnumber', TR.CropCode as 'cropcode', TE.EZID as 'trialEntryGuid', TR.EZID as 'trialID' from Trial as TR inner join Relationship as RE on TR.EZID = RE.EZID1 inner join TrialEntryApp as TE on RE.EZID2 = TE.EZID where  TE.NewRecord = 1 and TR.EZID = ? ", trial.EZID).ToList()).Where(trialEntry => trialEntry != null))
+                {
+                    lstTrialEntryApps.AddRange(trialEntry);
+                }
+                if (lstTrialEntryApps.Any())
+                {
+                    var inputParam = new CreateTrialEntry
+                    {
+                        UserName = WebserviceTasks.usernameWS.ToLower(),
+                        DeviceID = WebserviceTasks.deviceId,
+                        SoftwareVersion = WebserviceTasks.appVersion,
+                        AppName = "TrialAppLT",
+                        TrialEntriesData = lstTrialEntryApps.Serialize(),
+                        Token = WebserviceTasks.token
+                    };
+
+                    var responseCreateTrEntry = await client.GetResponse<CreateTrialEntry,CreateTrialEntryResponse>(inputParam);
+
+                    if (responseCreateTrEntry.TrialEntriesResultData.CreateTrialEntryResponseDto.Any())
+                    {
+                        foreach (var trialentry in responseCreateTrEntry.TrialEntriesResultData.CreateTrialEntryResponseDto)
+                        {
+                            db.ExecuteScalar<Trial>("Update Trial set SelectedRecordID = ? where SelectedRecordID = ? ",
+                                trialentry.TrialEntryEZID, trialentry.TrialEntryGuid);
+
+                            db.ExecuteScalar<TrialEntryApp>("Update TrialEntryApp set EZID = ?, NewRecord = 0 where EZID = ? ",
+                                trialentry.TrialEntryEZID, trialentry.TrialEntryGuid);
+
+                            db.ExecuteScalar<Relationship>("Update Relationship set EZID2 = ? where EZID2 = ? ",
+                                trialentry.TrialEntryEZID, trialentry.TrialEntryGuid);
+
+                            db.ExecuteScalar<ObservationApp>("Update ObservationApp set EZID = ? where EZID = ? ",
+                                trialentry.TrialEntryEZID, trialentry.TrialEntryGuid);
+                        }
+                    }
+                    else
+                    {
+                        return false;
+                    }
+
+                }
+                #endregion
+                #region Upload Observation data
+                var ezidString = listofCheckedTrials.Select(trial =>
+                    db.Query<EzidsList>(
+                        "select group_concat(ezid2, '|')   || '|' || ezid1 as 'ezidLists' from relationship where ezid1 = ?",
+                        trial.EZID).SingleOrDefault()
+                    ).Aggregate("", (current, val) => current + val.ezidLists + "|").Trim('|');
+
+                    var observationData =
+                        db.Query<Observation1>(
+                            @"SELECT e.EZID AS 'trialEntryEZID', e.traitid AS 'traitID', lower(e.useridcreated) AS 'userIDCreated', e.dateupdated AS 'dateUpdated', e.datecreated AS 'dateUpdated', 
+                              CASE
+                                WHEN(e.ObsValueChar IS NOT NULL) THEN e.ObsValueChar
+                                WHEN(e.ObsValueInt IS NOT NULL) THEN e.ObsValueInt
+                                WHEN(e.ObsValueDec IS NOT NULL)  THEN e.ObsValueDec
+                                ELSE e.ObsValueDate
+                              END AS 'observationValue', LOWER(e.UserIDUpdated) AS 'userIDUpdated', e.datecreated AS 'observationDate', e.datecreated AS 'dateCreated'  FROM ObservationApp e WHERE INSTR('|" +
+                            ezidString +
+                            "|', '|' || e.ezid || '|') > 0 AND e.modified = 1 GROUP BY e.ezid,e.traitid, observationValue;");
+
+                    var save = new SaveObservationData
+                    {
+                        AppName = "TrialApp",
+                        DeviceID = WebserviceTasks.deviceId,
+                        Observationsjson = observationData.Serialize(),
+                        SoftwareVersion = WebserviceTasks.appVersion,
+                        Token = WebserviceTasks.token,
+                        UserName = WebserviceTasks.usernameWS
+                    };
+
+                   var responseSaveObs = await client.GetResponse<SaveObservationData,SaveObservationDataResponse>(save);
+                    result = responseSaveObs.Result;
+                if (responseSaveObs != null && result == "Success")
+                {
+                    foreach (var _data in observationData)
+                    {
+                        db.ExecuteScalar<ObservationApp>(
+                               @"DELETE FROM ObservationApp
+                                            WHERE EZID = ? AND TraitID = ? AND  date(DateCreated) = ? AND modified = 0 AND userIDCreated = ? AND 
+                                              (CASE
+                                                    WHEN(ObsValueChar IS NOT NULL) THEN CAST(ObsValueChar AS TEXT)
+                                                    WHEN(ObsValueInt IS NOT NULL) THEN CAST(ObsValueInt AS TEXT)
+                                                    WHEN(ObsValueDec IS NOT NULL)  THEN CAST(ObsValueDec AS TEXT)
+                                                    ELSE CAST(ObsValueDate AS TEXT)
+                                              END) != ? ",
+                               _data.trialEntryEZID, _data.traitID, _data.dateCreated, @"intra\" + WebserviceTasks.usernameWS.ToLower(), _data.observationValue);
+
+                        db.ExecuteScalar<ObservationApp>(
+                            "update ObservationApp set modified = 0, userIDUpdated = ?, userIDCreated = ? WHERE EZID = ? and TraitID = ? and ObservationApp.modified = 1;",
+                            @"intra\" + WebserviceTasks.usernameWS.ToLower(), @"intra\" + WebserviceTasks.usernameWS.ToLower(), _data.trialEntryEZID, _data.traitID);
+                    }
+
+                    foreach (var trial in listofCheckedTrials)
+                    {
+                        db.ExecuteScalar<Trial>("update Trial set StatusCode = 20 where EZID = ?", trial.EZID);
+
+                        var lstTrl = db.Query<TrialEntryApp>("select EZID from TrialEntryApp T join Relationship R on T.EZID = R.EZID2 where R.EZID1 = ? and T.Modified = 1", trial.EZID).ToList();
+
+                        foreach (var _var in lstTrl)
+                        {
+                            db.ExecuteScalar<Trial>("Update TrialEntryApp set Modified = 0 where EZID = ? ", _var.EZID);
+                        }
+                        // await DetailPage.createDBChangeLogFile(trial.EZID.ToString(), trial.TrialName, false, false);
+                        await LogMessage.Log(string.Concat(trial.EZID.ToString(), " : ", trial.TrialName));
+                    }
+                }
+                else
+                {
+                    return false;
+                }
+                #endregion
+              //  #region DELETE Trials from device
+              ////RemoveTrialFromDevice();
+              //  #endregion
+                db.Commit();
+            }
+            return true;
+        }
+        public async Task<bool> RemoveTrialFromDevice(List<Trial> listofCheckedTrials)
+        {
+            using (var db = new SQLiteConnection(DbPath.GetTransactionDbPath()))
+            {
+                db.BeginTransaction();
+                var ezidStringFinish = listofCheckedTrials.Select(trial =>
+                db.Query<EzidsList>("select group_concat(ezid2, '|')   || '|' || ezid1  as 'ezidLists' from relationship where ezid1 = ?",
+                    trial.EZID).SingleOrDefault()).Aggregate("", (current, val) => current + val.ezidLists + "|").Trim('|');
+
+                foreach (var trial in listofCheckedTrials)
+                {
+                    db.ExecuteScalar<Trial>("delete from Trial where  EZID = ?", trial.EZID);
+
+                    db.ExecuteScalar<Relationship>(
+                            "delete from Relationship where ezid1 = ?", trial.EZID);
+
+                    await LogMessage.Log(string.Concat(trial.EZID.ToString(), " : ", trial.TrialName));
+                }
+                db.ExecuteScalar<ObservationApp>(
+                            "delete from ObservationApp WHERE INSTR('|" +
+                            ezidStringFinish +
+                            "|', '|' || ObservationApp.ezid || '|') > 0;");
+
+                db.ExecuteScalar<TrialEntryApp>(
+                           "delete from TrialEntryApp WHERE INSTR('|" +
+                           ezidStringFinish +
+                           "|', '|' || TrialEntryApp.ezid || '|') > 0 ;");
+                db.Commit();
+                return true;
+
+            }
+        }
+
+        public async Task<int> AddVariety(TrialEntryApp TE,Relationship R)
+        {
+            var operation = await repo.AddTrialEntryWithRelationshipAsync(TE,R);
+            if (operation > 0)
+                UpdateTrialStatus(R.EZID1);
+            return operation;
+        }
+
+    }
+    internal class EzidsList
+    {
+        public string ezidLists { get; set; }
+    }
+
+}

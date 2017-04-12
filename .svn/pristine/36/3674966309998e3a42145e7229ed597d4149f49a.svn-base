@@ -1,0 +1,159 @@
+﻿
+using System;
+using System.Collections.Generic;
+using System.Windows.Input;
+using TrialApp.Entities.Transaction;
+using TrialApp.Services;
+using System.Linq;
+using System.Threading.Tasks;
+using TrialApp.ViewModels.Inetrfaces;
+using TrialApp.Common;
+
+namespace TrialApp.ViewModels
+{
+    public class MainPageViewModel : BaseViewModel
+    {
+        private bool _selected = false;
+        private bool _submitVisible = false;
+        private string _submitText;
+        private List<Trial> _selectedTileList = new List<Trial>();
+        private bool _displayConfirmation;
+        private readonly IDependencyService _dependencyService;
+        public TrialService trialService;// = new TrialService();
+
+        public override string UserName
+        {
+            get
+            {
+                return base.UserName;
+            }
+
+            set
+            {
+                base.UserName = value;
+            }
+        }
+        private string title = "Remove submitted trials?";
+        private string message = "Once removed, submitted trials will no longer be available on this device." +
+                                  System.Environment.NewLine + System.Environment.NewLine + "You can always download trials again.";
+        public bool Selected
+        {
+            get { return _selected; }
+            set
+            {
+                _selected = value;
+                OnPropertyChanged();
+            }
+        }
+
+        public bool SubmitVisible
+        {
+            get { return _submitVisible; }
+            set
+            {
+                _submitVisible = value;
+                OnPropertyChanged();
+            }
+        }
+
+        internal async Task RemoveTrials()
+        {
+            await trialService.RemoveTrialFromDevice(SelectedTileList);
+        }
+
+        public string SubmitText
+        {
+            get { return _submitText; }
+            set
+            {
+                _submitText = value;
+                OnPropertyChanged();
+            }
+        }
+
+        internal async Task DeleteTrials()
+        {
+            await trialService.RemoveTrialFromDevice(SelectedTileList);
+        }
+
+        public ICommand SubmitCommand { get; set; }
+        public List<Trial> SelectedTileList
+        {
+            get { return _selectedTileList; }
+            set
+            {
+                _selectedTileList = value;
+                OnPropertyChanged();
+            }
+        }
+
+
+        public MainPageViewModel() : this(new DependencyServiceWrapper())
+        {
+            trialService = new TrialService();
+            SubmitCommand = new SubmitOperation(this);
+        }
+
+        public MainPageViewModel(IDependencyService dependencyService)
+        {
+            _dependencyService = dependencyService;
+            trialService = new TrialService("");
+        }
+
+        public bool DisplayConfirmation
+        {
+            get { return _displayConfirmation; }
+            set
+            {
+                _displayConfirmation = value;
+                if (value)
+                    DisplayAlert();
+                OnPropertyChanged();
+            }
+        }
+
+        public void DisplayAlert()
+        {
+            string[] values = { title, message };
+           Xamarin.Forms.MessagingCenter.Send(this, "DisplayAlert", values);
+        }
+        internal void UpdateSubmit(Trial selectedTrial, bool isAdded)
+        {
+            if (isAdded)
+                SelectedTileList.Add(selectedTrial);
+            else
+                SelectedTileList.Remove(selectedTrial);
+            if (SelectedTileList.Count > 0)
+            {
+                SubmitVisible = true;
+                SubmitText = "SUBMIT (" + SelectedTileList.Count + ")";
+            }
+            else
+                SubmitVisible = false;
+        }
+    }
+    internal class SubmitOperation : ICommand
+    {
+        private MainPageViewModel mainPageViewModel;
+        public SubmitOperation(MainPageViewModel mainPageViewModel)
+        {
+            this.mainPageViewModel = mainPageViewModel;
+        }
+
+        public event EventHandler CanExecuteChanged;
+
+        public bool CanExecute(object parameter)
+        {
+            return true;
+        }
+
+        public async void Execute(object parameter)
+        {
+            //await mainPageViewModel._navigation.PushModalAsync(new Views.UploadConfirmation(mainPageViewModel.SelectedTileList));
+            var listOFModified = mainPageViewModel.SelectedTileList.Where(trial => trial.StatusCode == 30).ToList();
+            if (listOFModified.Any())
+                await mainPageViewModel.trialService.Uploaddata(listOFModified);
+            mainPageViewModel.DisplayConfirmation = true;
+        }
+    }
+}

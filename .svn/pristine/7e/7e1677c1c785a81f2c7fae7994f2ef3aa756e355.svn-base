@@ -1,0 +1,240 @@
+﻿using System;
+using System.Threading.Tasks;
+using System.Windows.Input;
+using Windows.Networking.Connectivity;
+using TrialApp.Entities;
+using TrialApp.Entities.ServiceResponse;
+using TrialApp.ServiceClient;
+using TrialApp.Views;
+using Xamarin.Forms;
+using TrialApp.Services;
+using TrialApp.ViewModels.Inetrfaces;
+
+namespace TrialApp.ViewModels
+{
+    public class SignInPageViewModel : BaseViewModel
+    {
+        #region Private variables
+
+        private string _password;
+        private bool _loginButtonEnable;
+        private string _errorMessage;
+        private bool _errorMsgVisible;
+        private INavigation _navigation;
+
+        #endregion
+
+        #region public properties
+        public double FontSizeMedium { get; set; }
+        public double FontSizeLarge { get; set; }
+        public double FontSizeDefault { get; set; }
+        public ICommand LogInCommand { get; set; }
+        public ICommand CancelSignIn { get; set; }
+        public override string UserName
+        {
+            get
+            {
+                return base.UserName;
+            }
+
+            set
+            {
+                base.UserName = value;
+                LoginButtonEnable = !string.IsNullOrEmpty(Password) && !string.IsNullOrEmpty(UserName);
+                OnPropertyChanged(nameof(LoginButtonEnable));
+            }
+        }
+        //public override string UserName
+        //{
+        //    get { return _userName; }
+        //    set
+        //    {
+        //        if (value.Contains("\\"))
+        //        {
+        //            var DomainUserName = value.Split('\\');
+        //            WebserviceTasks.domain = DomainUserName[0];
+        //            _userName = DomainUserName[1];
+        //        }
+        //        else
+        //        {
+        //            _userName = value;
+        //            WebserviceTasks.domain = "INTRA";
+        //        }
+        //        OnPropertyChanged();
+        //        LoginButtonEnable = !string.IsNullOrEmpty(Password) && !string.IsNullOrEmpty(UserName);
+        //        OnPropertyChanged(nameof(LoginButtonEnable));
+        //    }
+        //}
+        public string Password
+        {
+            get { return _password; }
+            set
+            {
+                _password = value;
+                OnPropertyChanged();
+                LoginButtonEnable = !string.IsNullOrEmpty(UserName) && !string.IsNullOrEmpty(Password);
+                OnPropertyChanged(nameof(LoginButtonEnable));
+            }
+        }
+        public bool LoginButtonEnable
+        {
+            get { return _loginButtonEnable; }
+            set { _loginButtonEnable = value; OnPropertyChanged(); }
+
+        }
+        public string ErrorMessage
+        {
+            get { return _errorMessage; }
+            set
+            {
+                _errorMessage = value;
+                OnPropertyChanged();
+            }
+        }
+        public bool ErrorMsgVisible
+        {
+            get { return _errorMsgVisible; }
+            set
+            {
+                _errorMsgVisible = value;
+                OnPropertyChanged();
+            }
+        }
+
+        public INavigation Navigation
+        {
+            get { return _navigation; }
+            set { _navigation = value; }
+        }
+        #endregion
+
+        public SignInPageViewModel()
+        {
+            //_navigation = navigation;
+            //LogInCommand = new LoninOperation(this);
+            //CancelSignIn = new CancelOperation(this);
+            LogInCommand = new LoninOperation();
+            CancelSignIn = new CancelOperation();
+            IsBusy = false;
+        }
+        public SignInPageViewModel(INavigation navigation)
+        {
+            _navigation = navigation;
+            //LogInCommand = new LoninOperation(this);
+            //CancelSignIn = new CancelOperation(this);
+            LogInCommand = new LoninOperation();
+            CancelSignIn = new CancelOperation();
+            IsBusy = false;
+        }
+
+        public bool CheckInternetConnection()
+        {
+            ConnectionProfile connections = NetworkInformation.GetInternetConnectionProfile();
+            bool internet = connections != null && connections.GetNetworkConnectivityLevel() == NetworkConnectivityLevel.InternetAccess;
+            return internet;
+
+        }
+
+        public async Task<bool> LoginOperation()
+        {
+            try
+            {
+                var soapClient = new SoapClient
+                {
+                    EndPointAddress = WebserviceTasks.Endpoint,
+                    Credentail = WebserviceTasks.domain + "/" + UserName + ":" + Password// new NetworkCredential { Domain = "INTRA", UserName = UserName, Password = Password }
+                };
+
+                var authRequest = new GetTrialTokenBack()
+                {
+                    cropCode = "TO",
+                    userName = WebserviceTasks.domain + "/" + UserName,
+                    password = Password
+                };
+                var result = await soapClient.GetResponse<GetTrialTokenBack, GetTrialTokenBackResponse>(authRequest);
+                App.Token = result.tuple.old.GetTrialTokenBack.GetTrialTokenBack;
+                WebserviceTasks.usernameWS = UserName;
+                WebserviceTasks.passwordWS = Password;
+                WebserviceTasks.token = result.tuple.old.GetTrialTokenBack.GetTrialTokenBack;
+                return true;
+
+            }
+            catch (Exception ex)
+            {
+                ErrorMessage = ex.Message;
+                return false;
+            }
+
+        }
+
+        private void PutDefaultValues()
+        {
+            FontSizeMedium = Device.GetNamedSize(NamedSize.Medium, typeof(Label));
+            FontSizeLarge = Device.GetNamedSize(NamedSize.Large, typeof(Label));
+            FontSizeDefault = Device.GetNamedSize(NamedSize.Default, typeof(Label));
+            //_userName = "";
+            UserName = "";
+            _password = "";
+            _errorMessage = "";
+            _loginButtonEnable = false;
+            _errorMsgVisible = false;
+        }
+
+        internal class LoninOperation : ICommand
+        {
+            //private SignInPageViewModel signInPageViewModel;
+
+            //public LoninOperation(SignInPageViewModel signInPageViewModel)
+            //{
+            //    this.signInPageViewModel = signInPageViewModel;
+            //}
+            public LoninOperation()
+            {
+
+            }
+
+            public event EventHandler CanExecuteChanged;
+
+            public bool CanExecute(object parameter)
+            {
+                return true;
+            }
+
+            public async void Execute(object parameter)
+            {
+                var signinViewModel = parameter as SignInPageViewModel;
+                //var obj = signInPageViewModel;
+                signinViewModel.IsBusy = true;
+                if (!signinViewModel.CheckInternetConnection())
+                {
+                    signinViewModel.ErrorMessage = "No Internet Connection";
+                    signinViewModel.ErrorMsgVisible = true;
+                    signinViewModel.IsBusy = false;
+                }
+                else
+                {
+                    signinViewModel.ErrorMessage = "";
+                    signinViewModel.ErrorMsgVisible = false;
+
+                    if (await signinViewModel.LoginOperation())
+                    {
+                        await signinViewModel._navigation.PopModalAsync();
+                        signinViewModel.IsBusy = false;
+                        //await obj._navigation.PushModalAsync(new MainPage());
+                        //await obj._navigation.PushModalAsync(new MainPage(obj.UserName));
+                    }
+
+                    else
+                    {
+                        //signinViewModel.ErrorMessage = "Invalid User or Password";
+                        signinViewModel.ErrorMsgVisible = true;
+                        signinViewModel.IsBusy = false;
+                    }
+
+
+                }
+
+            }
+        }
+    }
+}

@@ -1,0 +1,16 @@
+﻿using TrialApp.ViewModels;
+using Xamarin.Forms;
+
+namespace TrialApp.Views
+{
+    public partial class TransferPage : ContentPage
+    {
+        public TransferPage()
+        {
+            InitializeComponent();
+
+            BindingContext = new TransferPageViewModel() ;
+        }
+
+    }
+}

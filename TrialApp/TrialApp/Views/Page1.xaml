@@ -1,0 +1,21 @@
+﻿<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://xamarin.com/schemas/2014/forms"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:observationcontrol="clr-namespace:TrialApp.Controls;assembly=TrialApp"
+             x:Class="TrialApp.Views.Page1"
+             >
+    <StackLayout>
+        <Button Clicked="Button_OnClicked" Text="Add" />
+        <observationcontrol:AwesomeWrappanel ItemsSource="{Binding Persons}" Orientation="Horizontal">
+            <observationcontrol:AwesomeWrappanel.ItemTemplate>
+                <DataTemplate>
+                    <StackLayout BackgroundColor="Red">
+                        <Label Text="{Binding Name}" />
+                        <Label Text="{Binding Age}" />
+                    </StackLayout>
+                </DataTemplate>
+            </observationcontrol:AwesomeWrappanel.ItemTemplate>
+        </observationcontrol:AwesomeWrappanel>
+    </StackLayout>
+
+</ContentPage>

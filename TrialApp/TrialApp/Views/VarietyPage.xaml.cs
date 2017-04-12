@@ -1,0 +1,65 @@
+﻿using System;
+using System.Collections.Generic;
+using System.Windows.Input;
+using TrialApp.ViewModels;
+using Xamarin.Forms;
+
+namespace TrialApp.Views
+{
+    public partial class VarietyPage : ContentPage
+    {
+        private List<VarietyData> VarList { get; set; }
+        private VarietyPageViewModel _varietyVm;
+        private int _trialEzid;
+        private List<object> _paramsEditTrialPropList;
+
+        public VarietyPage(int ezid, string trialName, string cropCode)
+        {
+            InitializeComponent();
+            _varietyVm = new VarietyPageViewModel();
+            _trialEzid = ezid;
+            _varietyVm.TrialEZID = ezid;
+            _varietyVm.TrialName = trialName;
+            _varietyVm.CropCode = cropCode;
+            _varietyVm.Navigation = Navigation;
+            _varietyVm.LoadTrialPropParams();
+            BindingContext = _varietyVm;
+           
+        }
+
+
+        private async void VarietyListView_OnItemTapped(object sender, ItemTappedEventArgs e)
+        {
+            var varList = _varietyVm.VarietyList;
+            var stackedItem = e.Item as VarietyData;
+            if (stackedItem != null)
+            {
+                var id = stackedItem.VarietyId;
+                var crop = stackedItem.Crop;
+               await App.MainNavigation.PushAsync(new ObservationPage(id, crop, varList, _trialEzid));
+            }
+        }
+
+        protected override void OnAppearing()
+        {
+            base.OnAppearing();
+            _varietyVm.StartTimer();
+            _varietyVm.LoadVarietyPageViewModel(_trialEzid, _varietyVm.TrialName, trialList => { VarietyListView.ItemsSource = trialList; });
+        }
+
+        protected override void OnDisappearing()
+        {
+            base.OnDisappearing();
+           // _varietyVm.Timer.Stop();
+        }
+
+    }
+
+    public class VarietyData
+    {
+        public string VarietyId { get; set; }
+        public string FieldNumber { get; set; }
+        public string VarietyName { get; set; }
+        public string Crop { get; set; }
+    }
+}

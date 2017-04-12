@@ -1,0 +1,28 @@
+﻿using TrialApp.ViewModels;
+using TrialApp.Views.Abstract;
+
+namespace TrialApp.Views
+{
+    public partial class AddVarietyPage
+    {
+        public AddVarietyPage(int trialEzid, string trialName, string cropCode)
+        {
+            InitializeComponent();
+            ViewModel.TrialEzid = trialEzid;
+            ViewModel.TrialName = trialName;
+            ViewModel.CropCode = cropCode;
+        }
+
+        protected override void OnAppearing()
+        {
+            base.OnAppearing();
+            ViewModel.StartTimer();
+        }
+
+        protected override void OnDisappearing()
+        {
+            base.OnDisappearing();
+            ViewModel.Timer.Stop();
+        }
+    }
+}

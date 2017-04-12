@@ -1,0 +1,43 @@
+﻿using System;
+using System.Collections.Generic;
+using Windows.UI.ViewManagement;
+using TrialApp.ViewModels;
+using Xamarin.Forms;
+
+namespace TrialApp.Views
+{
+    public partial class ObservationPage : ContentPage
+    {
+        private readonly ObservationPageViewModel _observationPageVm;
+
+        public ObservationPage(string id, string crop, List<VarietyData> varList, int trialEzid)
+        {
+            InitializeComponent();
+            _observationPageVm = new ObservationPageViewModel();
+            _observationPageVm.LoadFieldsset(crop);
+            _observationPageVm.LoadObservationViewModel(id, crop, varList, trialEzid);
+            BindingContext = _observationPageVm;
+        }
+        
+        private void FieldsetPicker_OnSelectedIndexChanged(object sender, EventArgs e)
+        {
+            if (FieldsetPicker.SelectedItem != null)
+            {
+                StackPanelTraits.Children.Clear();
+                _observationPageVm.LoadTraits((int)FieldsetPicker.SelectedValue, StackPanelTraits);
+            }
+        }
+
+        protected override void OnAppearing()
+        {
+            base.OnAppearing();
+            _observationPageVm.StartTimer();
+        }
+
+        protected override void OnDisappearing()
+        {
+            base.OnDisappearing();
+            _observationPageVm.Timer.Stop();
+        }
+    }
+}

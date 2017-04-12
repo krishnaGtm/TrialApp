@@ -1,0 +1,362 @@
+﻿
+using System;
+using System.Collections.Generic;
+using System.Windows.Input;
+using TrialApp.Services;
+using System.Linq;
+using System.Threading.Tasks;
+using TrialApp.ViewModels.Inetrfaces;
+using TrialApp.Views;
+using Xamarin.Forms;
+using System.Collections.ObjectModel;
+using TrialApp.Common.Extensions;
+
+namespace TrialApp.ViewModels
+{
+    public class Trial: ObservableViewModel
+    {
+        private int _ezid;
+
+        public int EZID
+        {
+            get { return _ezid; }
+            set { _ezid = value;OnPropertyChanged(); }
+        }
+        private string _cropCode;
+
+        public string CropCode
+        {
+            get { return _cropCode; }
+            set { _cropCode = value; OnPropertyChanged(); }
+        }
+        private string _trialName;
+
+        public string TrialName
+        {
+            get { return _trialName; }
+            set { _trialName = value; OnPropertyChanged(); }
+        }
+        private int _trialTypeID;
+
+        public int TrialTypeID
+        {
+            get { return _trialTypeID; }
+            set { _trialTypeID = value; OnPropertyChanged(); }
+        }
+        private string _countryCode;
+
+        public string CountryCode
+        {
+            get { return _countryCode; }
+            set { _countryCode = value; OnPropertyChanged(); }
+        }
+        private int _statusCode;
+
+        public int StatusCode
+        {
+            get { return _statusCode; }
+            set { _statusCode = value; OnPropertyChanged(); }
+        }
+        private bool _selected;
+
+        public bool Selected
+        {
+            get { return _selected; }
+            set
+            {
+                _selected = value;
+                OnPropertyChanged();
+            }
+        }
+        private string _styleID;
+
+        public string StyleID
+        {
+            get { return _styleID; }
+            set { _styleID = value; }
+        }
+
+        private string _onlineStatus;
+
+        public string OnlineStatus
+        {
+            get { return _onlineStatus; }
+            set
+            {
+                _onlineStatus = value;
+                OnPropertyChanged();
+            }
+        }
+        private bool _isloginButton;
+
+        public bool IsloginButton
+        {
+            get { return _isloginButton; }
+            set
+            {
+                _isloginButton = value;
+                OnPropertyChanged();
+            }
+        }
+        private bool _isTrial;
+
+        public bool IsTrial
+        {
+            get { return _isTrial; }
+            set
+            {
+                _isTrial = value;
+                OnPropertyChanged();
+            }
+        }
+        private double _fontSizeStatus;
+
+        public double FontSizeStatus
+        {
+            get { return _fontSizeStatus; }
+            set
+            {
+                _fontSizeStatus = value;
+                OnPropertyChanged();
+            }
+        }
+        private double _fontsizeTrialName;
+
+        public double FontsizeTrialName
+        {
+            get { return _fontsizeTrialName; }
+            set
+            {
+                _fontsizeTrialName = value;
+                OnPropertyChanged();
+            }
+        }
+        private Color _trialColor;
+
+        public Color TrialColor
+        {
+            get { return _trialColor; }
+            set
+            {
+                _trialColor = value;
+                OnPropertyChanged();
+            }
+        }
+
+    }
+    public class MainPageViewModel : BaseViewModel
+    {
+        private bool _selected = false;
+        private bool _submitVisible = false;
+        private string _submitText;
+        private List<Entities.Transaction.Trial> _selectedTileList = new List<Entities.Transaction.Trial>();
+        private bool _displayConfirmation;
+        private readonly IDependencyService _dependencyService;
+        public TrialService trialService;
+        private ObservableCollection<Trial> _listSource;
+
+        public ObservableCollection<Trial> listSource
+        {
+            get { return _listSource; }
+            set
+            {
+                _listSource = value;
+                OnPropertyChanged();
+            }
+        }
+
+
+        public override string UserName
+        {
+            get
+            {
+                return base.UserName;
+            }
+
+            set
+            {
+                base.UserName = value;
+            }
+        }
+        private string title = "Remove submitted trials?";
+        private string message = "Once removed, submitted trials will no longer be available on this device." +
+                                  System.Environment.NewLine + System.Environment.NewLine + "You can always download trials again.";
+       public bool SubmitVisible
+        {
+            get { return _submitVisible; }
+            set
+            {
+                _submitVisible = value;
+                OnPropertyChanged();
+            }
+        }
+
+        internal async Task RemoveTrials()
+        {
+            await trialService.RemoveTrialFromDevice(SelectedTileList);
+        }
+
+        public string SubmitText
+        {
+            get { return _submitText; }
+            set
+            {
+                _submitText = value;
+                OnPropertyChanged();
+            }
+        }
+
+        internal async Task DeleteTrials()
+        {
+            await trialService.RemoveTrialFromDevice(SelectedTileList);
+        }
+
+        public ICommand SubmitCommand { get; set; }
+
+        public ICommand GoToFilterScreen { get; set; }
+
+        public List<Entities.Transaction.Trial> SelectedTileList
+        {
+            get { return _selectedTileList; }
+            set
+            {
+                _selectedTileList = value;
+                OnPropertyChanged();
+            }
+        }
+        public List<Entities.Transaction.Trial> AllTrials { get; set; }
+
+        public MainPageViewModel()
+        {
+            trialService = new TrialService();
+            SubmitCommand = new SubmitOperation(this);
+            GoToFilterScreen = new GoToFilterScreenCommand();
+            listSource = new ObservableCollection<Trial>();
+            AllTrials = new List<Entities.Transaction.Trial>();
+
+        }
+        public void LoadTrials()
+        {
+           if(listSource.Count >0)
+                listSource.Clear();
+            AllTrials = trialService.GetAllTrials();
+            var loginTrial = new Trial
+            {
+                IsTrial = false,
+                IsloginButton = true,
+                OnlineStatus = UserName.ToText() == "" ? "OFFLINE" : "+",
+                TrialColor = UserName.ToText() == "" ? Color.Gray: Color.FromHex("#61ce2b"),
+                FontsizeTrialName = UserName.ToText()==""? Device.GetNamedSize(NamedSize.Medium, typeof(Button)) : 70
+            };
+            listSource.Add(loginTrial);
+            foreach (var _item in AllTrials)
+            {
+                var trial = new Trial
+                {
+                    CountryCode = _item.CountryCode,
+                    CropCode = _item.CropCode,
+                    EZID = _item.EZID,
+                    StatusCode = _item.StatusCode,
+                    TrialName = _item.TrialName,
+                    TrialTypeID = _item.TrialTypeID,
+                    IsTrial = true,
+                    IsloginButton = false,
+                    FontSizeStatus = Device.GetNamedSize(NamedSize.Micro, typeof(Label)) - 2,
+                    FontsizeTrialName = Device.GetNamedSize(NamedSize.Small, typeof(Label)) - 2,
+                    TrialColor = _item.StatusCode == 30 ? Color.FromHex("#61ce2b") : Color.FromHex("#4990e2"),
+                    StyleID = _item.EZID + "|" + _item.TrialName + "|" + _item.CropCode
+                };
+                listSource.Add(trial);
+            }
+
+        }
+
+        public MainPageViewModel(IDependencyService dependencyService)
+        {
+            _dependencyService = dependencyService;
+            trialService = new TrialService("");
+       } 
+
+        public bool DisplayConfirmation
+        {
+            get { return _displayConfirmation; }
+            set
+            {
+                _displayConfirmation = value;
+                if (value)
+                    DisplayAlert();
+                OnPropertyChanged();
+            }
+        }
+
+        public void DisplayAlert()
+        {
+            string[] values = { title, message };
+           Xamarin.Forms.MessagingCenter.Send(this, "DisplayAlert", values);
+        }
+        internal void UpdateSubmit(Entities.Transaction.Trial selectedTrial, bool isAdded)
+        {
+            if (isAdded)
+                SelectedTileList.Add(selectedTrial);
+            else
+                SelectedTileList.Remove(selectedTrial);
+            if (SelectedTileList.Count > 0)
+            {
+                SubmitVisible = true;
+                SubmitText = "SUBMIT (" + SelectedTileList.Count + ")";
+            }
+            else
+                SubmitVisible = false;
+        }
+    }
+    internal class SubmitOperation : ICommand
+    {
+        private readonly MainPageViewModel _mainPageViewModel;
+        public SubmitOperation(MainPageViewModel mainPageViewModel)
+        {
+            this._mainPageViewModel = mainPageViewModel;
+        }
+
+        public event EventHandler CanExecuteChanged;
+
+        public bool CanExecute(object parameter)
+        {
+            return true;
+        }
+
+        public async void Execute(object parameter)
+        {
+            var listOFModified = _mainPageViewModel.SelectedTileList.Where(trial => trial.StatusCode == 30).ToList();
+            if (listOFModified.Any())
+                await _mainPageViewModel.trialService.Uploaddata(listOFModified);
+            _mainPageViewModel.DisplayConfirmation = true;
+        }
+    }
+
+    internal class GoToFilterScreenCommand : ICommand
+    {
+        public bool CanExecute(object parameter)
+        {
+            return true;
+        }
+
+        public async void Execute(object parameter)
+        {
+            if (parameter is MainPageViewModel)
+            {
+                var vm = parameter as MainPageViewModel;
+                if (vm == null) return;
+                await vm.Navigation.PushModalAsync(new FilterPage());
+            }
+            else if (parameter is TransferPageViewModel)
+            {
+                var vm = parameter as TransferPageViewModel;
+                if (vm == null) return;
+                await vm.Navigation.PushModalAsync(new FilterPage());
+            }
+            
+        }
+
+        public event EventHandler CanExecuteChanged;
+    }
+}

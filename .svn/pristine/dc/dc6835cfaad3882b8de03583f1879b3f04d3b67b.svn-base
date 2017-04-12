@@ -1,0 +1,641 @@
+﻿using System;
+using System.Collections.Generic;
+using System.Collections.ObjectModel;
+using System.ComponentModel;
+using System.Linq;
+using System.Runtime.CompilerServices;
+using System.Windows.Input;
+using TrialApp.Common;
+using TrialApp.Controls;
+using TrialApp.Entities.Master;
+using TrialApp.Entities.Transaction;
+using TrialApp.Services;
+using TrialApp.UserControls;
+using TrialApp.Views;
+using Windows.UI.Xaml;
+using Xamarin.Forms;
+
+namespace TrialApp.ViewModels
+{
+    public class ObservationPageViewModel_new:INotifyPropertyChanged
+    {
+        
+        #region private variables
+        private string _crop;
+        public string _id;
+        private Color _headerColor;
+        private string _nextVarietyName;
+        private Color _buttonColor;
+        private List<FieldSetPair> _traitSetList;
+        public ObservationAppService _observationService;
+        private FieldSetService _FieldSetService;
+        private List<VarietyData> _varList;
+        private TrialService _trialService;
+        private int _trialEzid;
+        #endregion
+
+        #region public properties
+        
+
+        public ICommand FieldsetChangeCommand { get; set; }
+
+        public string VarietyName { get; set; }
+
+        public string FieldNumber { get; set; }
+
+        public string Variety { get; set; }
+
+        public Color HeaderColor
+        {
+            get { return _headerColor; }
+            set
+            {
+                _headerColor = value;
+               
+            }
+        }
+
+        public Color ButtonColor
+        {
+            get { return _buttonColor; }
+            set
+            {
+                _buttonColor = value;
+                
+            }
+        }
+
+
+        public string NextVarietyName
+        {
+            get { return _nextVarietyName; }
+            set
+            {
+                _nextVarietyName = value;
+                
+            }
+        }
+
+        private string columnLabel;
+
+        public string Columnlabel
+        {
+            get { return columnLabel; }
+            set { columnLabel = value; }
+        }
+
+
+        public List<FieldSetPair> TraitSetList
+        {
+            get { return _traitSetList; }
+            set
+            {
+                _traitSetList = value;
+                
+            }
+        }
+        private List<Trait> traitList;
+
+        private TraitFieldValidation validation;
+
+        public TraitFieldValidation Validation
+        {
+            get { return validation; }
+            set { validation = value; }
+        }
+
+
+        //public event PropertyChangedEventHandler PropertyChanged;
+
+        public List<Trait> TraitList
+        {
+            get { return traitList; }
+            set { traitList = value;
+                NotifyPropertyChanged();
+            }
+        }
+
+        private void NotifyPropertyChanged([CallerMemberName]string v ="")
+        {
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(v));
+                //PropertyChanged(this, new PropertyChangedEventArgs(v));
+        }
+
+        public event PropertyChangedEventHandler PropertyChanged;
+
+
+
+        #endregion
+
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="name"></param>
+        /// <param name="id"></param>
+        /// <param name="crop"></param>
+        /// <param name="varList"></param>
+
+        public ObservationPageViewModel_new()
+        {
+            //if (TraitList == null)
+            //    TraitList = new List<Trait>();
+            
+
+        }
+
+        public void LoadObservationViewModel(string id, string crop, List<VarietyData> varList,int trialEzid)
+        {
+            _crop = crop;
+            _id = id;
+            _varList = varList;
+            _trialEzid = trialEzid;
+            _FieldSetService = new FieldSetService();
+            _trialService = new TrialService();
+            _observationService = new ObservationAppService();
+            LoadObservation();
+            FieldsetChangeCommand = new FieldsetChangeOperation();
+            Validation = new TraitFieldValidation();
+        }
+
+        /// <summary>
+        /// Initialize Observation page and all static contents
+        /// </summary>
+        private void LoadObservation()
+        {
+            TraitSetList = new List<FieldSetPair>();
+            
+            var currentItem = _varList.Find(x => x.VarietyId == _id);
+            var currentIndex = _varList.IndexOf(currentItem);
+
+            VarietyName = "";// currentItem.Name;
+            FieldNumber = ""; //currentItem.Name;
+            Variety = ""; //currentItem.Name;
+            HeaderColor = Color.FromHex("#ebebeb");
+            ButtonColor = Color.FromHex("#4a90e2");
+
+            NextVarietyName = "NEXT: ";// + _varList[currentIndex + 1].Name;
+
+            var fieldSets = _FieldSetService.GetFieldSetList(_crop);
+
+            foreach (var val in fieldSets)
+            {
+                var fieldset = new FieldSetPair()
+                {
+                    Id = Convert.ToInt32(val.FieldSetID),
+                    Name = val.FieldSetCode + " - " + val.FieldSetName
+                };
+                TraitSetList.Add(fieldset);
+            }
+        }
+        //public void LoadTraits(int _fieldsetId, StackLayout stackPanelTraits)
+        public void LoadTraits(int _fieldsetId)
+        {
+            // get traitlist from repository
+            TraitService traitService = new TraitService();
+            TraitValueService traitValueService = new TraitValueService();
+            var traits = traitService.GetTraitList(_fieldsetId);
+            //traitList = traitService.GetTraitList(_fieldsetId);
+            TraitList = new List<Trait>( traits.Select(x =>
+            {
+                var trait = new Trait()
+                {
+                    ColumnLabel = x.ColumnLabel,
+                    CropGroupID = x.CropGroupID,
+                    CropCode = x.CropCode,
+                    DataType = x.DataType,
+                    DisplayFormat = x.DisplayFormat,
+                    Editor = x.Editor,
+                    ListOfValues = x.ListOfValues,
+                    MaxValue = x.MaxValue,
+                    MinValue = x.MinValue,
+                    Property = x.Property,
+                    TraitID = x.TraitID,
+                    TraitName = x.TraitName,
+                    Updatable = x.Updatable,
+                    TraitTypeID = x.TraitTypeID,
+                    ListVisible = x.ListOfValues,
+                    Tag = x.TraitID.ToString() + "|" + x.DataType,
+                    CharVisible = (!x.ListOfValues && string.IsNullOrEmpty(x.DataType)) ? true : (!x.ListOfValues && !string.IsNullOrEmpty(x.DataType) && x.DataType.ToLower() == "c") ? true : false,//datatype c=char, i=int,d=date,a=dec
+                    DateVisible = (!x.ListOfValues && string.IsNullOrEmpty(x.DataType)) ? false : (!x.ListOfValues && !string.IsNullOrEmpty(x.DataType) && x.DataType.ToLower() == "d") ? true : false,
+                    IntOrDecVisible = (!x.ListOfValues && string.IsNullOrEmpty(x.DataType)) ? false : (!x.ListOfValues && !string.IsNullOrEmpty(x.DataType) && (x.DataType.ToLower() == "i" || x.DataType.ToLower() == "a")) ? true : false,
+                    ListSource = x.ListOfValues ? traitValueService.GetTraitValueWithID(x.TraitID) : null,
+                    ObsValue = GetObservationValue(GetObsValue(x.TraitID), x.DataType.ToLower()),
+                    ValidationErrorVisible = false,
+                    ChangedValueVisible = false,
+                    DatePickerVisible = false
+                };
+                //trait.ObsValue = (trait.ObsValue == "" && trait.ListVisible) ? null : trait.ObsValue;
+                //trait.DateValue = null;
+                trait.ObsvalueInitial = trait.ObsValue;
+                trait.DateValue = (trait.DateVisible && trait.ObsValue != "") ? Convert.ToDateTime((trait.ObsValue.Split('T')[0])) : (DateTime?)null;
+                
+                
+                return trait;
+            }).ToList());
+
+
+            Validation.AddValidation(TraitList.OrderBy(x => x.TraitID).Select(x => x.TraitID.ToString()).ToArray(),
+                TraitList.OrderBy(x => x.TraitID).Select(x => x.DisplayFormat).ToArray(), 
+                TraitList.OrderBy(x => x.TraitID).Select(x => x.MinValue).ToArray(), 
+                TraitList.OrderBy(x => x.TraitID).Select(x => x.MaxValue).ToArray());
+
+            LoadInitialObservation();
+        }
+
+        public void LoadInitialObservation()
+        {            
+            if(TraitList == null)
+            {
+                TraitList = new List<Trait>();
+            }
+            TraitList.Insert(0, new Trait
+            {
+                ColumnLabel = "No.",
+                TraitID = -1,
+                ObsValue = FieldNumber,
+                Updatable = false,
+                CharVisible = true
+            });
+            TraitList.Insert(1, new Trait
+            {
+                ColumnLabel = "Variety",
+                TraitID = -2,
+                ObsValue = Variety,
+                Updatable = false,
+                CharVisible = true
+            });
+            
+
+        }
+
+        public void Entry_Unfocused(object sender, FocusEventArgs e)
+        {
+            //_trialUpdated
+            var entry = sender as Entry;
+            //var validate = new TraitFieldValidation();
+            var traitId = Convert.ToInt32(entry.ClassId.Split('|')[0]);
+            var Trait = TraitList.Where(x => x.TraitID == traitId).FirstOrDefault();
+            if (Trait == null)
+                return;
+            if(Trait.ObsvalueInitial != Trait.ObsValue)
+            {
+                var dataType = entry.ClassId.Split('|')[1];
+                var validateResult = Validation.validatecol(traitId.ToString(), entry.Text);
+                if (string.IsNullOrEmpty(validateResult))
+                {
+                    var observation = new ObservationApp
+                    {
+                        EZID = _id,
+                        TraitID = traitId,
+                        DateCreated = DateTime.UtcNow.Date.ToString("yyyy-MM-dd"),
+                        DateUpdated = DateTime.UtcNow.Date.ToString("yyyy-MM-dd"),
+                        UserIDCreated = "user",
+                        UserIDUpdated = "user",
+                        Modified = true
+                    };
+                    observation = ObservationWithCorrVal(observation, dataType.ToLower(), entry.Text);
+                    _observationService.UpdateOrSaveObservationData(observation);
+                    _trialService.UpdateTrialStatus(_trialEzid);
+                    Trait.ValidationErrorVisible = false;
+                    Trait.ChangedValueVisible = true;
+                    Trait.ObsvalueInitial = entry.Text;
+                }
+                else
+                {  
+                    Trait.ValidationErrorVisible = true;
+                    Trait.ChangedValueVisible = false;
+                    entry.Focus();
+                }
+            }
+        }
+        
+        public void DateEntry_Focused(object sender, FocusEventArgs e)
+        {
+            var entry = sender as Entry;
+            var traitId = Convert.ToInt32(entry.ClassId.Split('|')[0]);
+            var Trait = TraitList.Where(x => x.TraitID == traitId).FirstOrDefault();
+            if (Trait == null)
+                return;
+            else
+            {
+                Trait.DatePickerVisible = true;
+                Trait.DateVisible = false;
+            }
+        }
+
+        public void Today_Clicked(object sender, EventArgs e)
+        {
+            var btn = sender as Button;
+            var traitId = Convert.ToInt32(btn.ClassId.Split('|')[0]);
+            var Trait = TraitList.Where(x => x.TraitID == traitId).FirstOrDefault();
+            if (Trait == null)
+                return;
+            Trait.DateValue = DateTime.Today.Date;
+            
+
+        }
+
+        public void DatePicker_UnFocusedEX(object sender, FocusEventArgs e)
+        {
+            var datePicker = sender as DatePicker;
+            //var validate = new TraitFieldValidation();
+            var traitId = Convert.ToInt32(datePicker.ClassId.Split('|')[0]);
+            var Trait = TraitList.Where(x => x.TraitID == traitId).FirstOrDefault();
+            if (Trait == null)
+                return;
+            else
+            {
+                Trait.DatePickerVisible = false;
+                Trait.DateVisible = true;
+            }
+
+        }
+        public void Picker_SelectedIndexChanged(object sender, EventArgs e)
+        {
+            var picker = sender as BindablePicker;
+            //var validate = new TraitFieldValidation();
+            if(picker.ClassId != null)
+            {
+                var traitId = Convert.ToInt32(picker.ClassId.Split('|')[0]);
+                var Trait = TraitList.Where(x => x.TraitID == traitId).FirstOrDefault();
+                if (Trait == null)
+                    return;
+                if (Trait.ObsValue != Trait.ObsvalueInitial)
+                {
+                    var validateResult = Validation.validatecol(traitId.ToString(), picker.SelectedValue.ToString());
+                    if (string.IsNullOrEmpty(validateResult))
+                    {
+                        var observation = new ObservationApp
+                        {
+                            EZID = _id,
+                            TraitID = traitId,
+                            DateCreated = DateTime.UtcNow.Date.ToString("yyyy-MM-dd"),
+                            DateUpdated = DateTime.UtcNow.Date.ToString("yyyy-MM-dd"),
+                            UserIDCreated = "user",
+                            UserIDUpdated = "user",
+                            ObsValueChar = picker.SelectedValue.ToString(),
+                            Modified = true
+                        };
+                        _observationService.UpdateOrSaveObservationData(observation);
+                        _trialService.UpdateTrialStatus(_trialEzid);
+                        Trait.ValidationErrorVisible = false;
+                        Trait.ChangedValueVisible = true;
+                    }
+                    else
+                    {
+                        Trait.ValidationErrorVisible = true;
+                        Trait.ChangedValueVisible = false;
+                    }
+                }
+            }
+            
+
+        }
+
+        public void DateData_DateSelected(object sender, DateChangedEventArgs e)
+        {
+            var datePicker = sender as DatePicker;
+            //var validate = new TraitFieldValidation();
+            var traitId = Convert.ToInt32(datePicker.ClassId.Split('|')[0]);
+            var Trait = TraitList.Where(x => x.TraitID == traitId).FirstOrDefault();
+            if (Trait == null)
+                return;
+            else
+            {
+                var validateResult = Validation.validatecol(traitId.ToString(), datePicker.Date.ToString());
+                if (string.IsNullOrEmpty(validateResult))
+                {
+                    var observation = new ObservationApp
+                    {
+                        EZID = _id,
+                        TraitID = traitId,
+                        DateCreated = DateTime.UtcNow.Date.ToString("yyyy-MM-dd"),
+                        DateUpdated = DateTime.UtcNow.Date.ToString("yyyy-MM-dd"),
+                        UserIDCreated = "user",
+                        UserIDUpdated = "user",
+                        ObsValueDate = datePicker.Date.ToString("yyyy-MM-ddTHH:mm:ss"),// datePicker.Date,
+                        Modified = true
+                    };
+                    _observationService.UpdateOrSaveObservationData(observation);
+                    _trialService.UpdateTrialStatus(_trialEzid);
+
+                }
+                else
+                {
+                    //display not validated indicator on the control
+                }
+                Trait.DatePickerVisible = false;
+                Trait.DateVisible = true;
+            }
+            
+        }
+
+        /// <summary>
+        /// returns correct observation value according to the datatype
+        /// </summary>
+        /// <param name="observationData"></param>
+        /// <param name="dataType"></param>
+        /// <returns></returns>
+
+        private ObservationApp ObservationWithCorrVal(ObservationApp observation, string dataType, string value)
+        {
+            switch (dataType)
+            {
+                case "c":
+                    observation.ObsValueChar = value;
+                    return observation;
+                case "i":
+                    int i;
+                    observation.ObsValueInt = int.TryParse(value, out i) ? i : (int?)null; //Convert.ToInt32(value);
+                    return observation;
+                case "d":
+                    DateTime dt;
+                    observation.ObsValueDate = DateTime.TryParse(value, out dt) ? dt.ToString("yyyy-MM-ddTHH:mm:ss") : ""; // Convert.ToDateTime(value);
+                    return observation;
+                case "a":
+                    decimal dec;
+                    observation.ObsValueDec = decimal.TryParse(value, out dec) ? dec : (decimal?)null; // Convert.ToDecimal(value);
+                    return observation;
+                default:
+                    return observation;
+
+            }
+        }
+
+        private string GetObservationValue(ObservationApp observationData, string dataType)
+        {
+            if(observationData != null)
+            {
+                switch (dataType)
+                {
+                    case "c":
+                        return observationData.ObsValueChar ?? "";
+                    case "i":
+                        return observationData.ObsValueInt?.ToString() ?? "";
+                    case "d":
+                        return observationData.ObsValueDate?.ToString() ?? "";
+                    case "a":
+                        return observationData.ObsValueDec?.ToString() ?? "";
+                    default:
+                        return "";
+
+                }
+            }
+            return "";
+            
+
+        }
+        
+
+        private ObservationApp GetObsValue(int traitId)
+        {
+            var obsData = _observationService.GetObservationData(_id, traitId);
+            return obsData;
+        }
+
+        private class ObservationDatacoll
+        {
+            private string columnLabel;
+
+            public string ColumnLabel
+            {
+                get { return columnLabel; }
+                set { columnLabel = value; }
+            }
+
+        }
+    }
+    public class Trait : INotifyPropertyChanged
+    {
+        public int TraitID { get; set; }
+        public int? CropGroupID { get; set; }
+        public string CropCode { get; set; }
+        public int? TraitTypeID { get; set; }
+        public string TraitName { get; set; }
+        public string ColumnLabel { get; set; }
+        private bool validationErrorVisible;
+        public string ObsvalueInitial { get; set; }
+        public bool ValidationErrorVisible
+        {
+            get { return validationErrorVisible; }
+            set { validationErrorVisible = value;
+                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs("ValidationErrorVisible"));
+            }
+        }
+        private bool changedValueVisible;
+        public bool ChangedValueVisible
+        {
+            get { return changedValueVisible; }
+            set { changedValueVisible = value;
+                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs("ChangedValueVisible"));
+            }
+        }
+        private string dataType;
+        private bool listVisible;
+        public bool ListVisible
+        {
+            get { return listVisible; }
+            set { listVisible = value; }
+        }
+        private bool charVisible;
+        public bool CharVisible
+        {
+            get { return charVisible; }
+            set { charVisible = value; }
+        }
+        private bool dateVisible;
+        private bool datePickerVisible;
+        private string dateValueString;
+        public string DateValueString
+        {
+            get { return dateValueString; }
+            set { dateValueString = value;
+                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs("DateValueString"));
+            }
+        }
+        public bool DatePickerVisible
+        {
+            get { return datePickerVisible; }
+            set { datePickerVisible = value;
+                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs("DatePickerVisible"));
+            }
+        }
+        public bool DateVisible
+        {
+            get { return dateVisible; }
+            set { dateVisible = value;
+                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs("DateVisible"));
+            }
+        }
+        private DateTime? dateValue;
+        public DateTime? DateValue
+        {
+            get { return dateValue; }
+            set
+            {
+                dateValue = value;
+                DateValueString = dateValue?.ToString("yyyy-MM-dd");
+                //NotifyPropertyChanged();
+                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs("DateValue"));
+            }
+        }
+
+        private bool intOrDecVisible;
+        public bool IntOrDecVisible
+        {
+            get { return intOrDecVisible; }
+            set { intOrDecVisible = value; }
+        }
+        public string DataType
+        {
+            get { return dataType; }
+            set { dataType = value; }
+        }
+        public bool Updatable { get; set; }
+        public string DisplayFormat { get; set; }
+        public bool Editor { get; set; }
+        private bool listOfValues;
+
+        public bool ListOfValues
+        {
+            get { return listOfValues; }
+            set { listOfValues = value; }
+        }
+        private string tag;
+        public string Tag
+        {
+            get { return tag; }
+            set { tag = value; }
+        }
+
+        private string obsValue;
+
+        public string ObsValue
+        {
+            get { return obsValue; }
+            set { obsValue = value; }
+        }
+
+        public int? MinValue { get; set; }
+        public int? MaxValue { get; set; }
+        public bool Property { get; set; }
+
+        private List<TraitValue> listSource;
+
+        public event PropertyChangedEventHandler PropertyChanged;
+        //private void NotifyPropertyChanged([CallerMemberName]string v = "")
+        //{
+        //    PropertyChanged(this, new PropertyChangedEventArgs(v));
+        //}
+        public List<TraitValue> ListSource
+        {
+            get { return listSource; }
+            set
+            {
+                listSource = value;
+                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs("listSource"));
+            }
+        }
+
+    }
+}

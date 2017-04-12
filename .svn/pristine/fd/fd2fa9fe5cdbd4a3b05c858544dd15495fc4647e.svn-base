@@ -1,0 +1,22 @@
+﻿<?xml version="1.0" encoding="utf-8" ?>
+<Application xmlns="http://xamarin.com/schemas/2014/forms"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:forms="using:System.Windows.Forms"
+             x:Class="TrialApp.App">
+  <Application.Resources>
+
+    <!-- Application resource dictionary -->
+
+    <ResourceDictionary>
+      <ControlTemplate x:Key="BasePageTemplate">
+        <StackLayout Spacing="0">
+          <StackLayout BackgroundColor="{TemplateBinding BindingContext.BackColor}">
+            <Label Text="{TemplateBinding BindingContext.CurrentTime}"  HorizontalOptions="EndAndExpand" VerticalOptions="Start" FontSize="14" TextColor="Black" Margin="5"></Label>
+          </StackLayout>
+          <ContentPresenter />
+        </StackLayout>
+      </ControlTemplate>
+    </ResourceDictionary>
+
+  </Application.Resources>
+</Application>

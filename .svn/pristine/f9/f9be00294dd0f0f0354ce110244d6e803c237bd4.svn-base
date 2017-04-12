@@ -1,0 +1,167 @@
+﻿using System;
+using System.Collections.Generic;
+using System.Collections.ObjectModel;
+using System.ComponentModel;
+using System.Linq;
+using TrialApp.Common.Extensions;
+using TrialApp.Entities.Transaction;
+using TrialApp.Services;
+using TrialApp.ViewModels;
+using Xamarin.Forms;
+using Trial = TrialApp.ViewModels.Trial;
+
+namespace TrialApp.Views
+{
+    public partial class MainPage
+    {
+        private static readonly Dictionary<string, string> TrialStatus = new Dictionary<string, string>
+        {
+            {"10","New"},
+            {"20","Synced"},
+            {"30","Updated"}
+        };
+
+        private readonly TrialService _service;
+        private readonly MainPageViewModel _vm;
+        public MainPage()
+        {
+
+            InitializeComponent();
+            _service = new TrialService();
+            _vm = BindingContext as MainPageViewModel;
+            _vm.Navigation = Navigation;
+
+        }
+
+        protected override void OnAppearing()
+        {
+            _vm.UserName = WebserviceTasks.usernameWS.ToText();
+            _vm.LoadTrials();
+
+            MessagingCenter.Unsubscribe<MainPageViewModel, string[]>(this, "DisplayAlert");
+
+            MessagingCenter.Subscribe<MainPageViewModel, string[]>(this, "DisplayAlert", async (sender, values) =>
+              {
+                  var action = await DisplayAlert(values[0], values[1], "Remove", "Keep");
+                  if (action)
+                  {
+                      await _vm.RemoveTrials();
+                      this.OnAppearing();
+                      _vm.SubmitVisible = false;
+                      _vm.SelectedTileList.Clear();
+                  }
+                  else
+                  {
+                      OnAppearing();
+                      _vm.SubmitVisible = false;
+                      _vm.SelectedTileList.Clear();
+                  }
+              });
+
+            _vm.StartTimer();
+        }
+
+        protected override void OnDisappearing()
+        {
+            base.OnDisappearing();
+            _vm.Timer.Stop();
+        }
+
+        private void Tile_Tapping(object sender, MR.Gestures.TapEventArgs e)
+        {
+            var tile = sender as MR.Gestures.StackLayout;
+            var classid = tile?.ClassId;
+            if (classid != null)
+            {
+                Navigation.PushModalAsync(new VarietyPage(Convert.ToInt32(tile.ClassId.Split('|')[0]), tile.ClassId.Split('|')[1], tile.ClassId.Split('|')[2]));
+            }
+        }
+
+        private void Tile_LongPressing(object sender, MR.Gestures.LongPressEventArgs e)
+        {
+            if (_vm.UserName == "")
+                Navigation.PushModalAsync(new SignInPage());
+            else
+            {
+                var tile = sender as MR.Gestures.StackLayout;
+                var image = (tile.Children[0] as StackLayout).Children[1] as Image;
+                image.IsVisible = !image.IsVisible;
+                var param = (ViewModels.Trial)tile.LongPressedCommandParameter;
+                var param1 = new Entities.Transaction.Trial
+                {
+                    CountryCode = param.CountryCode,
+                    TrialName = param.TrialName,
+                    EZID = param.EZID,
+                    TrialTypeID = param.TrialTypeID,
+                    StatusCode = param.StatusCode,
+                    CropCode = param.CropCode
+                };
+                _vm.UpdateSubmit(param1, image.IsVisible);
+            }
+
+        }
+        private async void Button_Clicked(object sender, EventArgs e)
+        {
+            var btn = sender as Button;
+            if (btn.Text == "+")
+                await Navigation.PushModalAsync(new TransferPage());
+            else
+                await Navigation.PushModalAsync(new SignInPage());
+        }
+
+        private void Entry_OnTextChanged(object sender, TextChangedEventArgs e)
+        {
+            var entry = sender as Entry;
+            ReloadTrial(entry.Text.ToText());
+        }
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="search">load trial with name starting with search parameter</param>
+        private void ReloadTrial(string search)
+        {
+            if (search != "")
+            {
+                var data = _vm.AllTrials.Where(x => x.TrialName.ToLower().StartsWith(search.ToLower())).ToList();
+                if (data.Count + 1 != _vm.listSource.Count)
+                {
+                    _vm.listSource.Clear();
+                    var data1 = new ObservableCollection<Trial>(data.Select(x => new Trial
+                    {
+                        CountryCode = x.CountryCode,
+                        CropCode = x.CropCode,
+                        EZID = x.EZID,
+                        StatusCode = x.StatusCode,
+                        TrialName = x.TrialName,
+                        TrialTypeID = x.TrialTypeID,
+                        IsTrial = true,
+                        IsloginButton = false,
+                        FontSizeStatus = Device.GetNamedSize(NamedSize.Micro, typeof(Label)) - 2,
+                        FontsizeTrialName = Device.GetNamedSize(NamedSize.Small, typeof(Label)) - 2,
+                        TrialColor = x.StatusCode == 30 ? Color.FromHex("#61ce2b") : Color.FromHex("#4990e2"),
+                        StyleID = x.EZID + "|" + x.TrialName + "|" + x.CropCode
+                    }));
+                    var loginTrial = new Trial
+                    {
+                        IsTrial = false,
+                        IsloginButton = true,
+                        OnlineStatus = _vm.UserName.ToText() == "" ? "OFFLINE" : "+",
+                        TrialColor = _vm.UserName.ToText() == "" ? Color.Gray : Color.FromHex("#61ce2b"),
+                        FontsizeTrialName = _vm.UserName.ToText() == "" ? Device.GetNamedSize(NamedSize.Medium, typeof(Button)) : 70
+                    };
+                    _vm.listSource.Insert(0, loginTrial); ;
+                    foreach (var trial in data1)
+                    {
+                        _vm.listSource.Add(trial);
+
+                    }
+                }
+            }
+            else
+            {
+                if (_vm.AllTrials.Count != _vm.listSource.Count)
+                    _vm.LoadTrials();
+            }
+        }
+    }
+}

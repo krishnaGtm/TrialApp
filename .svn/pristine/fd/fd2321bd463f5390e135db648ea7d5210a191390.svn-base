@@ -1,0 +1,46 @@
+﻿using System;
+using Microsoft.VisualStudio.TestTools.UnitTesting;
+using TrialApp.ViewModels;
+using System.Collections.Generic;
+using TrialApp.ViewModels.Inetrfaces;
+using System.ComponentModel;
+using TrialApp.Common;
+
+namespace TrialAppLT.UnitTest
+{
+    [TestClass]
+    public class MainPagePropertyChangeTest
+    {
+        private List<string> receivedEvents;
+        IDependencyService _dependencyService;
+
+        public MainPagePropertyChangeTest()
+        {
+            _dependencyService = new DependencyServiceStub();
+            // Use the testable stub for unit tests
+           // _dependencyService.Register<IFileHelper>(new Mockings.FileHelper());
+        }
+
+        [TestMethod]
+        public void TestAllPropertyChangeForMainPage()
+        {
+            // Fixture setup
+            receivedEvents = new List<string>();
+            var sut = new MainPageViewModel(_dependencyService);
+            sut.PropertyChanged += (sender, e) =>
+            {
+                receivedEvents.Add(e.PropertyName);
+            };
+            // Exercise system
+            sut.SubmitVisible = false;
+            sut.SubmitText = "Testing";
+            sut.DisplayConfirmation = false;
+            // Verify outcome
+            Assert.AreEqual(3, receivedEvents.Count);
+            Assert.AreEqual("SubmitVisible", receivedEvents[1]);
+            Assert.AreEqual("SubmitText", receivedEvents[2]);
+            Assert.AreEqual("DisplayConfirmation", receivedEvents[3]);
+        }
+    }
+    
+}

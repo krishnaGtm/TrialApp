@@ -1,0 +1,71 @@
+﻿using System.Collections.Generic;
+using System.Collections.ObjectModel;
+using System.Threading.Tasks;
+using Microsoft.VisualStudio.TestTools.UnitTesting;
+using TrialApp.Services;
+using TrialApp.ViewModels;
+using TrialApp.ViewModels.Inetrfaces;
+using System;
+
+namespace TrialAppLT.UnitTest
+{
+    [TestClass]
+    public class MainPageTest
+    {
+        IDependencyService _dependencyService;
+        private TestContext testContextInstance;
+
+        public TestContext TestContext
+        {
+            get
+            {
+                return testContextInstance;
+            }
+            set
+            {
+                testContextInstance = value;
+            }
+        }
+        [TestMethod]
+        public async Task SearchMethod()
+        {
+            
+            _dependencyService = new DependencyServiceStub();
+            MainPageViewModel vm = new MainPageViewModel(_dependencyService);
+            if (vm != null)
+            {
+                if (vm.trialService != null)
+                    vm.trialService = new TrialService();
+                if (vm.listSource == null)
+                    vm.listSource = new ObservableCollection<Trial>();
+                if (vm.AllTrials == null)
+                    vm.AllTrials = new List<Trial>();
+            }
+            vm.AllTrials.AddRange(new [] { new Trial
+            {
+                EZID = 1,
+                CropCode = "LT",
+                TrialName = "Recurrent Parent11",
+                TrialTypeID = 2,
+                CountryCode = "BE"
+            },
+            new Trial
+            {
+                EZID = 2,
+                CropCode = "LT",
+                TrialName = "Recurrent Parent21",
+                TrialTypeID = 2,
+                CountryCode = "BE"
+            }
+            });
+            double expectedTrial = 1;
+
+            var res = await vm.ApplyFilterOnTiles("Recurrent Parent1");
+            Assert.AreEqual(expectedTrial, res.Count, "Search on main page not working.");
+            Console.WriteLine("Two trials with name 'Recurrent Parent11' and 'Recorrent Parent21' is added to source.");
+            Console.WriteLine("search parementer 'Recurrent Parent1' is passed to filter out source.");
+            Console.WriteLine("Source returns single trial 'Recurrent Parent11' excluding 'Recorrent Parent21'");
+            Console.WriteLine("Search feature for Main page unit test passed.");
+        }
+    }
+}

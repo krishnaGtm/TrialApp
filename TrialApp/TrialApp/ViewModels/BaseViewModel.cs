@@ -1,0 +1,140 @@
+﻿using System;
+using System.Collections.Generic;
+using System.ComponentModel;
+using System.Runtime.CompilerServices;
+using TrialApp.Common;
+using TrialApp.Services;
+using TrialApp.ViewModels.Inetrfaces;
+using Xamarin.Forms;
+
+namespace TrialApp.ViewModels
+{
+    public abstract class BaseViewModel : ObservableViewModel, IViewModel
+    {
+        #region private variables
+
+        private readonly Dictionary<string, object> _properties = new Dictionary<string, object>();
+        private bool _isBusy;
+        private string _userName;
+        private ImageSource _filterIcon;
+
+        #endregion
+
+        #region public properties
+
+        public ImageSource FilterIcon
+        {
+            get { return _filterIcon; }
+            set { _filterIcon = value; OnPropertyChanged(); }
+        }
+        public INavigation Navigation { get; set; }
+       
+        public IDependencyService DependencyService;
+        public virtual string UserName
+        {
+            get { return _userName; }
+            set
+            {
+                if (value.Contains("\\"))
+                {
+                    var DomainUserName = value.Split('\\');
+                    WebserviceTasks.domain = DomainUserName[0];
+                    _userName = DomainUserName[1];
+                }
+                else
+                {
+                    _userName = value;
+                    WebserviceTasks.domain = "INTRA";
+                }
+                OnPropertyChanged();
+            }
+        }
+
+        public string CurrentTime
+        {
+            get { return GetValue<string>(); }
+            set { SetValue(value); }
+        }
+
+        public bool IsBusy
+        {
+            get { return _isBusy; }
+            set
+            {
+                _isBusy = value;
+                OnPropertyChanged();
+            }
+        }
+
+        #endregion
+
+        protected void SetValue<T>(T value, [CallerMemberName] string propertyName = null)
+        {
+            if (!_properties.ContainsKey(propertyName))
+            {
+                _properties.Add(propertyName, default(T));
+            }
+
+            var oldValue = GetValue<T>(propertyName);
+            if (!EqualityComparer<T>.Default.Equals(oldValue, value))
+            {
+                _properties[propertyName] = value;
+                OnPropertyChanged(propertyName);
+            }
+        }
+
+        protected T GetValue<T>([CallerMemberName] string propertyName = null)
+        {
+            if (!_properties.ContainsKey(propertyName))
+            {
+                return default(T);
+            }
+            else
+            {
+                return (T)_properties[propertyName];
+            }
+        }
+        
+        protected BaseViewModel() : this(new DependencyServiceWrapper())
+        {
+            
+        }
+
+        protected BaseViewModel(IDependencyService dependencyService)
+        {
+            DependencyService = dependencyService;
+        }
+
+        /// <summary>
+        /// start timer to run timer_Tick in certain interval of time
+        /// </summary>HH:mm
+        public void StartTimer()
+        {
+            //Timer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(30000) };
+            //CurrentTime = DateTime.Now.ToString("HH:mm");
+            //Timer.Tick += timer_Tick;
+            //Timer.Start();
+        }
+
+        /// <summary>
+        /// Recursive method to update display time
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="o"></param>
+        public void timer_Tick(object sender, object o)
+        {
+            CurrentTime = DateTime.Now.ToString("HH:mm");
+        }
+    }
+
+    public abstract class ObservableViewModel : INotifyPropertyChanged
+    {
+        public event PropertyChangedEventHandler PropertyChanged;
+
+        protected void OnPropertyChanged([CallerMemberName] string name = "")
+        {
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
+        }
+
+    }
+}

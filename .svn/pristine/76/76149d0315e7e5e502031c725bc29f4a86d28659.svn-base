@@ -1,0 +1,102 @@
+﻿using Windows.UI.ViewManagement;
+using System;
+using System.Collections.Generic;
+using System.Windows.Input;
+using TrialApp.Entities.Transaction;
+using TrialApp.Services;
+using Xamarin.Forms;
+
+namespace TrialApp.ViewModels
+{
+    class MainPageViewModel : BaseViewModel
+    {
+        private bool _selected = false;
+        private bool _submitVisible = false;
+        private string _submitText;
+        private List<Trial> _selectedTileList = new List<Trial>();
+        internal INavigation _navigation;
+        public TrialService trialService = new TrialService();
+        public bool Selected
+        {
+            get { return _selected; }
+            set
+            {
+                _selected = value;
+                OnPropertyChanged();
+            }
+        }
+
+        public bool SubmitVisible
+        {
+            get { return _submitVisible; }
+            set
+            {
+                _submitVisible = value;
+                OnPropertyChanged();
+            }
+        }
+        public string SubmitText
+        {
+            get { return _submitText; }
+            set
+            {
+                _submitText = value;
+                OnPropertyChanged();
+            }
+        }
+        
+        public ICommand SubmitCommand { get; set; }
+        public List<Trial> SelectedTileList
+        {
+            get { return _selectedTileList; }
+            set
+            {
+                _selectedTileList = value;
+                OnPropertyChanged();
+            }
+        }
+
+        public MainPageViewModel(INavigation navigation)
+        {
+            _navigation = navigation;
+            var task = StatusBar.GetForCurrentView().HideAsync();
+            StartTimer();
+            SubmitCommand = new SubmitOperation(this);
+        }
+
+        internal void UpdateSubmit(Trial selectedTrial, bool isAdded)
+        {
+            if (isAdded)
+                SelectedTileList.Add(selectedTrial);
+            else
+                SelectedTileList.Remove(selectedTrial);
+            if (SelectedTileList.Count > 0)
+            {
+                SubmitVisible = true;
+                SubmitText = "SUBMIT (" + SelectedTileList.Count + ")";
+            }
+            else
+                SubmitVisible = false;
+        }
+    }
+    internal class SubmitOperation : ICommand
+    {
+        private MainPageViewModel mainPageViewModel;
+        public SubmitOperation(MainPageViewModel mainPageViewModel)
+        {
+            this.mainPageViewModel = mainPageViewModel;
+        }
+
+        public event EventHandler CanExecuteChanged;
+
+        public bool CanExecute(object parameter)
+        {
+            return true;
+        }
+
+        public async void Execute(object parameter)
+        {
+            await mainPageViewModel._navigation.PushModalAsync(new Views.UploadConfirmation(mainPageViewModel.SelectedTileList));
+        }
+    }
+}

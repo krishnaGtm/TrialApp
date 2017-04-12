@@ -1,0 +1,70 @@
+﻿<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://xamarin.com/schemas/2014/forms"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:local="clr-namespace:TrialApp"
+             xmlns:viewModels="using:TrialApp.ViewModels"
+             xmlns:controls="clr-namespace:TrialApp.Controls;assembly=TrialApp"
+             xmlns:viewModels1="clr-namespace:TrialApp.ViewModels;assembly=TrialApp"
+             x:Class="TrialApp.Views.MainPage"
+             xmlns:mr="clr-namespace:MR.Gestures;assembly=MR.Gestures"
+             >
+    <ContentPage.BindingContext>
+        <viewModels1:MainPageViewModel></viewModels1:MainPageViewModel>
+    </ContentPage.BindingContext>
+    <ContentPage.ToolbarItems>
+        <ToolbarItem Text="Filter" Order="Primary" Icon = "../Assets/Filter.png" Command="{Binding GoToFilterScreen}" CommandParameter="{Binding}"></ToolbarItem>
+        <ToolbarItem Text="Sign out" Order="Secondary"></ToolbarItem>
+    </ContentPage.ToolbarItems>
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"></RowDefinition>
+        </Grid.RowDefinitions>
+    
+    <!--<StackLayout x:Name="_parent" Spacing="10" Orientation="Vertical" VerticalOptions="Fill" Padding="5">-->
+        <StackLayout Orientation="Vertical" Padding="5" Grid.Row="0" >
+            <Label x:Name="LabelTime" TextColor="Black" Margin="5,0" HorizontalOptions="EndAndExpand" VerticalOptions="Start"  FontSize="16"  Text="{Binding CurrentTime}"/>
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"></ColumnDefinition>
+                    <ColumnDefinition Width="Auto"></ColumnDefinition>
+                </Grid.ColumnDefinitions>
+                <Label FontSize="50" TextColor="Black" Margin="5" Text="Trials" LineBreakMode="TailTruncation"></Label>
+                <StackLayout Orientation="Horizontal" Grid.Column="1" HorizontalOptions="EndAndExpand">
+                    <Frame OutlineColor="Black" HeightRequest="40"  Padding="0" VerticalOptions="Center" IsVisible="{Binding SearchVisible}">
+                        <Entry x:Name="EntrySearch" Placeholder="search trial" TextChanged="Entry_OnTextChanged" HorizontalOptions="EndAndExpand"  VerticalOptions="Center" WidthRequest="150" HeightRequest="40" BackgroundColor="Transparent" Text="{Binding SearchText,Mode=TwoWay}" IsEnabled="{Binding EnableCotrols}"></Entry>
+                    </Frame>
+                    <Image x:Name="ImageSearch" Source="../Assets/search.png" WidthRequest="30" HeightRequest="30" Aspect="AspectFit" VerticalOptions="Center" HorizontalOptions="EndAndExpand" IsEnabled="{Binding EnableCotrols}">
+                        <Image.GestureRecognizers>
+                            <TapGestureRecognizer Tapped="SearchImage_Click"></TapGestureRecognizer>
+                        </Image.GestureRecognizers>
+                    </Image>
+                </StackLayout>
+            </Grid>
+            <Button BorderColor="Green" TextColor="Green" BackgroundColor="Transparent" HeightRequest="60" Font="Medium" 
+                Margin="5" IsVisible="{Binding SubmitVisible}" Text="{Binding SubmitText}" Command="{Binding SubmitCommand}" IsEnabled="{Binding EnableCotrols}">
+            </Button>
+        </StackLayout>
+        <ScrollView Orientation="Vertical" HorizontalOptions="StartAndExpand" VerticalOptions="StartAndExpand" Margin="5" Grid.Row="1" IsEnabled="{Binding EnableCotrols}">
+            <controls:AwesomeWrappanel Orientation="Horizontal" ItemsSource="{Binding listSource, Mode=TwoWay}" >
+                <controls:AwesomeWrappanel.ItemTemplate>
+                    <DataTemplate>
+                        <StackLayout HorizontalOptions="FillAndExpand" VerticalOptions="FillAndExpand" Padding="5" Spacing="5" Margin="5,5" >
+                            <mr:StackLayout IsVisible="{Binding IsTrial}" HeightRequest="125" WidthRequest="125" ClassId="{Binding StyleID}"  BackgroundColor="{Binding TrialColor}" LongPressing="Tile_LongPressing" Tapping="Tile_Tapping" LongPressedCommandParameter="{Binding}">
+                                <StackLayout BackgroundColor="Transparent" Orientation="Horizontal">
+                                    <Label Text="{Binding StatusName}" TextColor="White" HorizontalOptions="Start" FontSize="{Binding FontSizeStatus}"></Label>
+                                    <Image HeightRequest="18" WidthRequest="18" Source="../Assets/select.png" HorizontalOptions="EndAndExpand" IsVisible="{Binding Selected,Mode=TwoWay}" ></Image>
+                                </StackLayout>
+                                <Label Text="{Binding TrialName}" VerticalOptions="CenterAndExpand" HorizontalOptions="Center" TextColor="White" Margin="0" HeightRequest="70" VerticalTextAlignment="Center" FontSize="{Binding FontsizeTrialName}"></Label>
+                                <Label Text="{Binding CropCode}" VerticalOptions="EndAndExpand" HorizontalOptions="Start" TextColor="White" FontSize="{Binding FontSizeStatus}"></Label>
+                            </mr:StackLayout>
+                            <StackLayout IsVisible="{Binding IsloginButton}" HeightRequest="125" WidthRequest="125">
+                                <Button BackgroundColor="Transparent" Text="{Binding OnlineStatus}" HeightRequest="120" WidthRequest="120" BorderColor="{Binding TrialColor}" TextColor="{Binding TrialColor}" Clicked="Button_Clicked" FontSize="{Binding FontsizeTrialName}"></Button>
+                            </StackLayout>
+                        </StackLayout>
+                    </DataTemplate>
+                </controls:AwesomeWrappanel.ItemTemplate>
+            </controls:AwesomeWrappanel>
+        </ScrollView>
+    </Grid>
+</ContentPage>
